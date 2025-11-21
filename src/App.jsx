@@ -279,6 +279,7 @@ const App = () => {
   const [dragActive, setDragActive] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+  const [showInfo, setShowInfo] = useState(true);
 
   const processICSData = (content, sourceName, sourceType) => {
     try {
@@ -532,13 +533,22 @@ const App = () => {
         </div>
 
         {/* Legend */}
-        <div className="flex items-start gap-2 mb-6 text-sm text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-100">
-          <Info size={18} className="text-blue-500 mt-0.5 shrink-0" />
-          <p>
-            This view automatically filters out short meetings. Only events lasting <strong>longer than 24 hours</strong> are displayed. 
-            Events appear as solid blocks labeled with their title, spanning across days.
-          </p>
-        </div>
+        {showInfo && (
+            <div className="relative flex items-start gap-2 mb-6 text-sm text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-100">
+              <Info size={18} className="text-blue-500 mt-0.5 shrink-0" />
+              <p className="pr-6">
+                This view automatically filters out short meetings. Only events lasting <strong>longer than 24 hours</strong> are displayed. 
+                Events appear as solid blocks labeled with their title, spanning across days.
+              </p>
+              <button 
+                onClick={() => setShowInfo(false)} 
+                className="absolute top-2 right-2 p-1 hover:bg-blue-100 rounded-full text-gray-400 hover:text-blue-500 transition-colors"
+                title="Dismiss"
+              >
+                  <X size={14} />
+              </button>
+            </div>
+        )}
 
         {/* Calendar Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start">
