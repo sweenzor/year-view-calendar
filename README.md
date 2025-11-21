@@ -1,16 +1,63 @@
-# React + Vite
+# Year-view Calendar
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React-based yearly planner designed to visualize long-term events. This application automatically filters out short meetings and focuses on displaying multi-day events (lasting longer than 24 hours) in a clean, continuous view.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+*   **Long-Term Focus:** Automatically filters out events shorter than 24 hours to de-clutter your year view.
+*   **Multi-Source Import:**
+    *   **Drag & Drop:** upload `.ics` calendar files directly.
+    *   **URL Import:** Fetch calendars from public URLs (subject to CORS restrictions).
+*   **Flexible Views:**
+    *   **Calendar Year:** Standard Jan-Dec view.
+    *   **Rolling 12-Months:** View the next 12 months starting from today.
+*   **Privacy First:** All data processing happens entirely in your browser. No calendar data is ever sent to a server.
+*   **Visual Clarity:**
+    *   Continuous event bars spanning across days and weeks.
+    *   Smart stacking for overlapping events.
+    *   Dismissible information tips.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+*   **Framework:** [React](https://react.dev/) (via Vite)
+*   **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+*   **Icons:** [Lucide React](https://lucide.dev/)
+*   **Date Parsing:** Custom ICS parser (no heavy external date libraries).
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Prerequisites
+
+*   Node.js (v18 or higher recommended)
+*   npm
+
+### Installation
+
+1.  Clone the repository:
+    ```bash
+    git clone <repository-url>
+    cd year-view-calendar
+    ```
+
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+3.  Start the development server:
+    ```bash
+    npm run dev
+    ```
+
+4.  Open your browser at `http://localhost:5173` (or the port shown in the terminal).
+
+## Usage
+
+1.  **Import Data:** Drag an `.ics` file (exported from Google Calendar, Apple Calendar, or Outlook) onto the "File Upload" drop zone.
+2.  **Navigate:** Use the arrow keys next to the year to switch years.
+3.  **Toggle View:** Click "Next 12 Months" to switch between a static year view and a rolling view.
+4.  **Manage Sources:** See loaded calendars in the side panel. You can remove individual sources or clear all data.
+
+## License
+
+MIT
