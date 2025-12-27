@@ -325,22 +325,60 @@ const App = () => {
     e.preventDefault();
     if (!urlInput) return;
     
+    // Auto-replace webcal:// with https://
+    let cleanUrl = urlInput.trim();
+    if (cleanUrl.startsWith('webcal://')) {
+        cleanUrl = 'https://' + cleanUrl.substring(9);
+    }
+    
     setIsLoadingUrl(true);
     try {
-        const response = await fetch(urlInput);
-        if (!response.ok) throw new Error('Network response was not ok');
+        // Use the proxy server to avoid CORS issues
+        const proxyUrl = `/proxy?url=${encodeURIComponent(cleanUrl)}`;
+        const response = await fetch(proxyUrl);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server responded with ${response.status}: ${errorText}`);
+        }
+        
         const text = await response.text();
         
         let name = "Remote Calendar";
         try {
-            const urlObj = new URL(urlInput);
+            const urlObj = new URL(cleanUrl);
             name = urlObj.hostname + (urlObj.pathname.length > 1 ? urlObj.pathname : '');
         } catch(e) {}
 
         processICSData(text, name, 'url');
         setUrlInput('');
     } catch (error) {
-        alert("Could not load URL. \n\nNote: Many calendar providers (like Google) block direct browser access via CORS. You may need to download the file manually and drag it in.");
+        console.error("Proxy fetch failed", error);
+        
+        // Fallback to direct fetch only if it seems like a network error to the proxy itself
+        // But if proxy returned 4xx/5xx, it means proxy worked but upstream failed.
+        // We probably shouldn't fallback in that case, but let's be safe.
+        // Actually, if proxy failed (e.g. 500), trying direct fetch is unlikely to work for CORS reasons,
+        // but maybe the user is on a network where direct works (intranet?).
+        
+        try {
+            console.log("Attempting direct fetch fallback...");
+            const response = await fetch(cleanUrl);
+             if (!response.ok) throw new Error('Network response was not ok');
+            const text = await response.text();
+             let name = "Remote Calendar";
+            try {
+                const urlObj = new URL(cleanUrl);
+                name = urlObj.hostname + (urlObj.pathname.length > 1 ? urlObj.pathname : '');
+            } catch(e) {}
+            processICSData(text, name, 'url');
+             setUrlInput('');
+        } catch(fallbackError) {
+             const msg = error.message && error.message.includes('Server responded') 
+                ? `Import failed: ${error.message}`
+                : "Could not load URL. \n\nNote: Many calendar providers (like Google) block direct browser access via CORS. You may need to download the file manually and drag it in.";
+             alert(msg);
+        }
     } finally {
         setIsLoadingUrl(false);
     }
