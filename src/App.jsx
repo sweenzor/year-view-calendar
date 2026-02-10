@@ -285,7 +285,7 @@ const App = () => {
   const componentRef = useRef();
 
   const handlePrint = useReactToPrint({
-    content: () => componentRef.current,
+    contentRef: componentRef,
     documentTitle: `Yearly Planner - ${currentYear}`,
     pageStyle: `
       @page {
