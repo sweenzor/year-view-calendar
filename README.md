@@ -51,6 +51,24 @@ A React-based yearly planner designed to visualize long-term events. This applic
 
 4.  Open your browser at `http://localhost:5173` (or the port shown in the terminal).
 
+### Docker
+
+You can also run the app with Docker — no local Node.js installation required.
+
+1.  Start the development environment:
+    ```bash
+    docker compose up
+    ```
+
+2.  Open your browser at `http://localhost:5173`.
+
+Source files are volume-mounted so hot reloading works — edits to files in `src/`, `index.html`, `vite.config.js`, `tailwind.config.js`, `postcss.config.js`, and `server.js` are reflected immediately without rebuilding.
+
+To rebuild the image after changing dependencies (e.g. `package.json`):
+```bash
+docker compose up --build
+```
+
 ## Usage
 
 1.  **Import Data:** Drag an `.ics` file (exported from Google Calendar, Apple Calendar, or Outlook) onto the "File Upload" drop zone.

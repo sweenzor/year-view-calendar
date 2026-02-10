@@ -34,10 +34,10 @@ app.get('/proxy', async (req, res) => {
   }
 });
 
-app.listen(port, (err) => {
+app.listen(port, '0.0.0.0', (err) => {
   if (err) {
     console.error('Failed to start server:', err);
   } else {
-    console.log(`Proxy server listening at http://localhost:${port}`);
+    console.log(`Proxy server listening on port ${port}`);
   }
 });
