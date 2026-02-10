@@ -1,3 +1,70 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #e5e7eb;
+        border-radius: 20px;
+    }
+}
+
+@media print {
+    @page {
+        margin: 0.25in;
+        size: portrait;
+    }
+
+    /* 
+       Scale the entire application by reducing the root font size.
+       Since the application uses 'rem' for sizing (1.5rem, 1.25rem, etc.),
+       reducing the root font size from 16px to ~9px will scale everything down uniformly
+       without breaking layout flow like 'transform: scale()' does.
+    */
+    html {
+        font-size: 10px !important; /* ~62.5% of normal size */
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    body {
+        background-color: white !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .print-container {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background-color: white !important;
+        border: none !important;
+        box-shadow: none !important;
+        display: block !important;
+    }
+
+    /* Force 3-column layout */
+    .print-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 1rem !important;
+    }
+    
+    /* Ensure no breaks inside months */
+    .print-grid > div {
+        break-inside: avoid;
+    }
+
+    /* Clean up headers */
+    .print-header {
+        margin-bottom: 1rem;
+    }
+}

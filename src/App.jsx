@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Upload, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Info, Link as LinkIcon, Trash2, Loader, Repeat } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Upload, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Info, Link as LinkIcon, Trash2, Loader, Repeat, Printer } from 'lucide-react';
+import { useReactToPrint } from 'react-to-print';
 
 // --- ICS Parsing Utility ---
 const parseICS = (icsContent) => {
@@ -213,7 +214,7 @@ const MonthGrid = ({ year, month, events }) => {
         return (
             <div 
                 key={`row-${rowIndex}`} 
-                className="relative grid grid-cols-7 gap-x-0 w-full border-b border-gray-50 last:border-b-0"
+                className="relative grid grid-cols-7 gap-x-0 w-full border-b border-gray-50 last:border-b-0 print:border-gray-200"
                 style={{ height: `${containerHeight}rem` }}
             >
                 {/* Day Numbers Layer (Static Grid Items) */}
@@ -223,7 +224,7 @@ const MonthGrid = ({ year, month, events }) => {
                 {stackedSegments.map((seg, idx) => (
                     <div
                         key={`${seg.id}-${rowIndex}-${idx}`}
-                        className={`absolute flex items-center px-1 overflow-hidden shadow-sm text-[9px] leading-tight font-medium text-white hover:z-20 hover:opacity-90 transition-all cursor-pointer ${seg.color} ${seg.rounded}`}
+                        className={`absolute flex items-center px-1 overflow-hidden shadow-sm text-[9px] leading-tight font-medium text-white hover:z-20 hover:opacity-90 transition-all cursor-pointer ${seg.color} ${seg.rounded} print:shadow-none print:border print:border-white/20`}
                         style={{
                             top: `${baseHeight + (seg.stackIndex * (eventHeight + gap))}rem`,
                             height: `${eventHeight}rem`,
@@ -246,23 +247,23 @@ const MonthGrid = ({ year, month, events }) => {
   };
 
   return (
-    <div className="flex flex-col mb-4 break-inside-avoid bg-white rounded-sm">
-      <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-100">
+    <div className="flex flex-col mb-4 break-inside-avoid bg-white rounded-sm print:mb-2">
+      <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-100 print:mb-1 print:pb-0.5 print:border-gray-200">
           <div className="flex items-baseline gap-1">
-            <h3 className="font-bold text-gray-800 text-sm">{monthNames[month]}</h3>
-            <span className="text-xs text-gray-400">{year}</span>
+            <h3 className="font-bold text-gray-800 text-sm print:text-black">{monthNames[month]}</h3>
+            <span className="text-xs text-gray-400 print:text-gray-600">{year}</span>
           </div>
       </div>
       
       {/* Headers */}
       <div className="grid grid-cols-7 gap-0 text-center mb-1">
         {['S','M','T','W','T','F','S'].map((d,i) => (
-          <div key={i} className="text-[9px] text-gray-400 font-medium">{d}</div>
+          <div key={i} className="text-[9px] text-gray-400 font-medium print:text-gray-600">{d}</div>
         ))}
       </div>
       
       {/* Week Rows */}
-      <div className="flex flex-col">
+      <div className="flex flex-col print-compact-rows">
           {renderWeekRows()}
       </div>
     </div>
@@ -280,6 +281,19 @@ const App = () => {
   const [urlInput, setUrlInput] = useState('');
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
+
+  const componentRef = useRef();
+
+  const handlePrint = useReactToPrint({
+    content: () => componentRef.current,
+    documentTitle: `Yearly Planner - ${currentYear}`,
+    pageStyle: `
+      @page {
+        size: portrait;
+        margin: 5mm;
+      }
+    `
+  });
 
   const processICSData = (content, sourceName, sourceType) => {
     try {
@@ -415,11 +429,11 @@ const App = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gray-50 text-slate-900 p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 text-slate-900 p-4 md:p-8 font-sans print:bg-white print:p-0">
+      <div className="max-w-7xl mx-auto print:max-w-none print:mx-0">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-xl shadow-sm border border-gray-100 no-print">
           <div className="mb-4 md:mb-0">
             <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
               <CalendarIcon className="text-blue-600" />
@@ -429,6 +443,16 @@ const App = () => {
           </div>
 
           <div className="flex items-center gap-4">
+
+             {/* Print Button */}
+             <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                title="Print Calendar"
+             >
+                <Printer size={16} />
+                Print
+             </button>
             
              {/* View Mode Toggle */}
              <button
@@ -462,7 +486,7 @@ const App = () => {
         </div>
 
         {/* Controls Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 no-print">
             
             {/* 1. Import Panel */}
             <div 
@@ -572,7 +596,7 @@ const App = () => {
 
         {/* Legend */}
         {showInfo && (
-            <div className="relative flex items-start gap-2 mb-6 text-sm text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-100">
+            <div className="relative flex items-start gap-2 mb-6 text-sm text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-100 no-print">
               <Info size={18} className="text-blue-500 mt-0.5 shrink-0" />
               <p className="pr-6">
                 This view automatically filters out short meetings. Only events lasting <strong>longer than 24 hours</strong> are displayed. 
@@ -589,32 +613,44 @@ const App = () => {
         )}
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start">
-          {Array.from({ length: 12 }).map((_, index) => {
-            // Logic to calculate exact Month/Year for this grid cell based on View Mode
-            let displayMonth = index;
-            let displayYear = currentYear;
+        <div ref={componentRef} className="print-container">
+            {/* Print Header - Visible only when printing */}
+            <div className="hidden print:flex items-center justify-between mb-4 border-b border-gray-300 pb-2">
+                 <h1 className="text-2xl font-bold text-gray-800">
+                     Yearly Planner {currentYear}
+                 </h1>
+                 <span className="text-sm text-gray-500">
+                     {isRollingView ? `Rolling View (Starting ${new Date().toLocaleString('default', { month: 'long' })})` : 'Calendar Year'}
+                 </span>
+            </div>
 
-            if (isRollingView) {
-                const today = new Date();
-                const startMonth = today.getMonth(); // 0-11
-                const targetMonthIndex = startMonth + index;
-                displayMonth = targetMonthIndex % 12;
-                displayYear = currentYear + Math.floor(targetMonthIndex / 12);
-            }
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none">
+            {Array.from({ length: 12 }).map((_, index) => {
+                // Logic to calculate exact Month/Year for this grid cell based on View Mode
+                let displayMonth = index;
+                let displayYear = currentYear;
 
-            return (
-              <MonthGrid 
-                key={`${displayYear}-${displayMonth}`} 
-                year={displayYear} 
-                month={displayMonth} 
-                events={events} 
-              />
-            );
-          })}
+                if (isRollingView) {
+                    const today = new Date();
+                    const startMonth = today.getMonth(); // 0-11
+                    const targetMonthIndex = startMonth + index;
+                    displayMonth = targetMonthIndex % 12;
+                    displayYear = currentYear + Math.floor(targetMonthIndex / 12);
+                }
+
+                return (
+                <MonthGrid 
+                    key={`${displayYear}-${displayMonth}`} 
+                    year={displayYear} 
+                    month={displayMonth} 
+                    events={events} 
+                />
+                );
+            })}
+            </div>
         </div>
         
-        <div className="mt-12 text-center text-gray-400 text-sm">
+        <div className="mt-12 text-center text-gray-400 text-sm no-print">
           <p>Privacy Note: All processing happens in your browser. Your calendar data is not sent to any server.</p>
         </div>
 
