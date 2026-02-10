@@ -228,10 +228,8 @@ const MonthGrid = ({ year, month, events }) => {
                         style={{
                             top: `${baseHeight + (seg.stackIndex * (eventHeight + gap))}rem`,
                             height: `${eventHeight}rem`,
-                            gridColumnStart: seg.colStart,
-                            gridColumnEnd: seg.colEnd,
-                            left: '1px',
-                            right: '1px',
+                            left: `calc(${((seg.colStart - 1) / 7) * 100}% + 1px)`,
+                            width: `calc(${((seg.colEnd - seg.colStart) / 7) * 100}% - 2px)`,
                             zIndex: 10
                         }}
                         title={seg.title}
