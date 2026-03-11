@@ -67,24 +67,41 @@ const parseICS = (icsContent) => {
     .filter(e => e.durationDays > 1); 
 };
 
+// --- Golden-angle Color Assignment ---
+// Assigns maximally-spaced hues so events in the same month look distinct.
+// Events sorted by start date → adjacent events (same timeframe) get the
+// most different colors. Varies lightness/saturation slightly for extra range.
+const GOLDEN_ANGLE = 137.508;
+const assignEventColors = (events) => {
+  const sorted = [...events].sort((a, b) => a.start - b.start || (a.title || '').localeCompare(b.title || ''));
+  const colorMap = new Map();
+  sorted.forEach((evt, i) => {
+    const hue = (i * GOLDEN_ANGLE) % 360;
+    const saturation = 58 + (i % 3) * 8;     // 58%, 66%, 74%
+    const lightness = 45 + (i % 4) * 5;      // 45%, 50%, 55%, 60%
+    colorMap.set(evt, `hsl(${hue.toFixed(1)}, ${saturation}%, ${lightness}%)`);
+  });
+  return colorMap;
+};
+
 // --- Mock Data Generator ---
 const generateMockEvents = (year) => {
   return [
-    { id: 'mock-1', sourceId: 'mock', title: "Winter Vacation", start: new Date(year, 0, 5), end: new Date(year, 0, 12), color: "bg-blue-500" },
-    { id: 'mock-2', sourceId: 'mock', title: "Conference in NY", start: new Date(year, 2, 10), end: new Date(year, 2, 14), color: "bg-purple-500" },
-    { id: 'mock-3', sourceId: 'mock', title: "Project Sprint", start: new Date(year, 4, 1), end: new Date(year, 4, 15), color: "bg-green-500" },
-    { id: 'mock-4', sourceId: 'mock', title: "Summer Roadtrip", start: new Date(year, 6, 20), end: new Date(year, 7, 5), color: "bg-orange-500" },
-    { id: 'mock-5', sourceId: 'mock', title: "Design Workshop", start: new Date(year, 8, 12), end: new Date(year, 8, 14), color: "bg-indigo-500" },
-    { id: 'mock-6', sourceId: 'mock', title: "Holiday Break", start: new Date(year, 11, 24), end: new Date(year, 11, 31), color: "bg-red-500" },
+    { id: 'mock-1', sourceId: 'mock', title: "Winter Vacation", start: new Date(year, 0, 5), end: new Date(year, 0, 12) },
+    { id: 'mock-2', sourceId: 'mock', title: "Conference in NY", start: new Date(year, 2, 10), end: new Date(year, 2, 14) },
+    { id: 'mock-3', sourceId: 'mock', title: "Project Sprint", start: new Date(year, 4, 1), end: new Date(year, 4, 15) },
+    { id: 'mock-4', sourceId: 'mock', title: "Summer Roadtrip", start: new Date(year, 6, 20), end: new Date(year, 7, 5) },
+    { id: 'mock-5', sourceId: 'mock', title: "Design Workshop", start: new Date(year, 8, 12), end: new Date(year, 8, 14) },
+    { id: 'mock-6', sourceId: 'mock', title: "Holiday Break", start: new Date(year, 11, 24), end: new Date(year, 11, 31) },
     // Add intentional overlap for demonstration
-    { id: 'mock-7', sourceId: 'mock', title: "Overlap Test A", start: new Date(year, 4, 5), end: new Date(year, 4, 10), color: "bg-rose-500" },
-    { id: 'mock-8', sourceId: 'mock', title: "Overlap Test B", start: new Date(year, 4, 8), end: new Date(year, 4, 12), color: "bg-yellow-500" },
+    { id: 'mock-7', sourceId: 'mock', title: "Overlap Test A", start: new Date(year, 4, 5), end: new Date(year, 4, 10) },
+    { id: 'mock-8', sourceId: 'mock', title: "Overlap Test B", start: new Date(year, 4, 8), end: new Date(year, 4, 12) },
   ];
 };
 
 // --- Components ---
 
-const MonthGrid = ({ year, month, events }) => {
+const MonthGrid = ({ year, month, events, colorMap }) => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, month, 1).getDay(); 
   const totalSlots = daysInMonth + firstDayOfMonth;
@@ -121,10 +138,8 @@ const MonthGrid = ({ year, month, events }) => {
         const colStart = (startSlot % 7) + 1;
         const colEnd = (endSlot % 7) + 2; // exclusive
 
-        // Color logic
         const evtTitle = evt.title || 'Untitled';
-        const colors = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-orange-500", "bg-pink-500", "bg-teal-500", "bg-indigo-500", "bg-rose-500"];
-        const color = evt.color || colors[(evtTitle.length + evtIdx) % colors.length];
+        const color = colorMap?.get(evt) || 'hsl(210, 60%, 50%)';
 
         // Rounded corners logic
         let rounded = "rounded-sm";
@@ -155,7 +170,7 @@ const MonthGrid = ({ year, month, events }) => {
     });
 
     return segmentsByRow;
-  }, [year, month, events, firstDayOfMonth, rowCount]);
+  }, [year, month, events, colorMap, firstDayOfMonth, rowCount]);
 
   // 2. Render each week (row) independently
   const renderWeekRows = () => {
@@ -238,7 +253,7 @@ const MonthGrid = ({ year, month, events }) => {
                     return (
                     <div
                         key={`${seg.id}-${rowIndex}-${idx}`}
-                        className={`absolute flex items-center overflow-hidden shadow-sm text-[9px] leading-tight font-medium text-white hover:z-20 hover:opacity-90 transition-all cursor-pointer ${seg.color} ${!hasLeft && !hasRight ? 'rounded-md' : hasLeft && !hasRight ? 'rounded-r-md' : !hasLeft && hasRight ? 'rounded-l-md' : ''} print:shadow-none print:text-black`}
+                        className={`absolute flex items-center overflow-hidden shadow-sm text-[9px] leading-tight font-medium text-white hover:z-20 hover:opacity-90 transition-all cursor-pointer ${!hasLeft && !hasRight ? 'rounded-md' : hasLeft && !hasRight ? 'rounded-r-md' : !hasLeft && hasRight ? 'rounded-l-md' : ''} print:shadow-none print:text-black`}
                         style={{
                             top: `${baseHeight + (seg.stackIndex * (eventHeight + gap))}rem`,
                             height: `${eventHeight}rem`,
@@ -247,7 +262,8 @@ const MonthGrid = ({ year, month, events }) => {
                             zIndex: 10,
                             paddingLeft: hasLeft ? `${chevronPx + 2}px` : '4px',
                             paddingRight: hasRight ? `${chevronPx + 2}px` : '4px',
-                            clipPath
+                            clipPath,
+                            backgroundColor: seg.color
                         }}
                         title={seg.title}
                     >
@@ -297,6 +313,8 @@ const App = () => {
   const [urlInput, setUrlInput] = useState('');
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
+
+  const colorMap = useMemo(() => assignEventColors(events), [events]);
 
   const componentRef = useRef();
 
@@ -712,7 +730,8 @@ const App = () => {
                     key={`${displayYear}-${displayMonth}`} 
                     year={displayYear} 
                     month={displayMonth} 
-                    events={events} 
+                    events={events}
+                    colorMap={colorMap}
                 />
                 );
             })}
