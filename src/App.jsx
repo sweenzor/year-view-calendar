@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Upload, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Info, Link as LinkIcon, Trash2, Loader, Repeat, Printer } from 'lucide-react';
+import { Upload, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Info, Link as LinkIcon, Trash2, Loader, Repeat, Printer, RefreshCw } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 
 // --- ICS Parsing Utility ---
@@ -224,7 +224,7 @@ const MonthGrid = ({ year, month, events }) => {
                 {stackedSegments.map((seg, idx) => (
                     <div
                         key={`${seg.id}-${rowIndex}-${idx}`}
-                        className={`absolute flex items-center px-1 overflow-hidden shadow-sm text-[9px] leading-tight font-medium text-white hover:z-20 hover:opacity-90 transition-all cursor-pointer ${seg.color} ${seg.rounded} print:shadow-none print:border print:border-white/20`}
+                        className={`absolute flex items-center px-1 overflow-hidden shadow-sm text-[9px] leading-tight font-medium text-white hover:z-20 hover:opacity-90 transition-all cursor-pointer ${seg.color} ${seg.rounded} print:shadow-none print:border print:border-white/20 print:text-black`}
                         style={{
                             top: `${baseHeight + (seg.stackIndex * (eventHeight + gap))}rem`,
                             height: `${eventHeight}rem`,
@@ -293,11 +293,11 @@ const App = () => {
     `
   });
 
-  const processICSData = (content, sourceName, sourceType) => {
+  const processICSData = (content, sourceName, sourceType, sourceUrl = null, existingSourceId = null) => {
     try {
       const parsedEvents = parseICS(content);
-      const sourceId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-      
+      const sourceId = existingSourceId || Date.now().toString() + Math.random().toString(36).substr(2, 9);
+
       // Tag events with source ID
       const taggedEvents = parsedEvents.map(e => ({
         ...e,
@@ -305,14 +305,18 @@ const App = () => {
       }));
 
       setEvents(prev => {
-        // Remove mock events if present
-        const cleanPrev = prev.filter(e => e.sourceId !== 'mock');
+        // Remove mock events and any existing events for this source
+        const cleanPrev = prev.filter(e => e.sourceId !== 'mock' && e.sourceId !== sourceId);
         return [...cleanPrev, ...taggedEvents];
       });
       setSources(prev => {
         // Remove mock source if present
         const cleanPrev = prev.filter(s => s.id !== 'mock');
-        return [...cleanPrev, { id: sourceId, name: sourceName, type: sourceType }];
+        if (existingSourceId) {
+          // Update existing source in place
+          return cleanPrev.map(s => s.id === sourceId ? { ...s, name: sourceName, type: sourceType, url: sourceUrl } : s);
+        }
+        return [...cleanPrev, { id: sourceId, name: sourceName, type: sourceType, url: sourceUrl }];
       });
     } catch (err) {
       alert(`Error parsing ${sourceName}.`);
@@ -362,17 +366,17 @@ const App = () => {
             name = urlObj.hostname + (urlObj.pathname.length > 1 ? urlObj.pathname : '');
         } catch(e) {}
 
-        processICSData(text, name, 'url');
+        processICSData(text, name, 'url', cleanUrl);
         setUrlInput('');
     } catch (error) {
         console.error("Proxy fetch failed", error);
-        
+
         // Fallback to direct fetch only if it seems like a network error to the proxy itself
         // But if proxy returned 4xx/5xx, it means proxy worked but upstream failed.
         // We probably shouldn't fallback in that case, but let's be safe.
         // Actually, if proxy failed (e.g. 500), trying direct fetch is unlikely to work for CORS reasons,
         // but maybe the user is on a network where direct works (intranet?).
-        
+
         try {
             console.log("Attempting direct fetch fallback...");
             const response = await fetch(cleanUrl);
@@ -383,7 +387,7 @@ const App = () => {
                 const urlObj = new URL(cleanUrl);
                 name = urlObj.hostname + (urlObj.pathname.length > 1 ? urlObj.pathname : '');
             } catch(e) {}
-            processICSData(text, name, 'url');
+            processICSData(text, name, 'url', cleanUrl);
              setUrlInput('');
         } catch(fallbackError) {
              const msg = error.message && error.message.includes('Server responded') 
@@ -393,6 +397,32 @@ const App = () => {
         }
     } finally {
         setIsLoadingUrl(false);
+    }
+  };
+
+  const [reloadingSourceId, setReloadingSourceId] = useState(null);
+
+  const reloadSource = async (source) => {
+    if (!source.url) return;
+    setReloadingSourceId(source.id);
+    try {
+      const proxyUrl = `/proxy?url=${encodeURIComponent(source.url)}`;
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+      const text = await response.text();
+      processICSData(text, source.name, 'url', source.url, source.id);
+    } catch (error) {
+      console.error("Reload failed", error);
+      alert(`Failed to reload ${source.name}`);
+    } finally {
+      setReloadingSourceId(null);
+    }
+  };
+
+  const reloadAllSources = async () => {
+    const urlSources = sources.filter(s => s.url);
+    for (const source of urlSources) {
+      await reloadSource(source);
     }
   };
 
@@ -572,22 +602,45 @@ const App = () => {
                                 <div className={`w-2 h-2 rounded-full shrink-0 ${source.type === 'mock' ? 'bg-blue-400' : source.type === 'url' ? 'bg-purple-400' : 'bg-green-400'}`}></div>
                                 <span className="text-sm text-gray-700 truncate" title={source.name}>{source.name}</span>
                              </div>
-                             <button 
-                                onClick={() => removeSource(source.id)}
-                                className="text-gray-400 hover:text-red-500 p-1 rounded-md transition-colors"
-                             >
-                                <X size={14} />
-                             </button>
+                             <div className="flex items-center gap-1">
+                                {source.url && (
+                                  <button
+                                    onClick={() => reloadSource(source)}
+                                    disabled={reloadingSourceId === source.id}
+                                    className="text-gray-400 hover:text-purple-500 p-1 rounded-md transition-colors disabled:opacity-50"
+                                    title="Reload calendar"
+                                  >
+                                    <RefreshCw size={14} className={reloadingSourceId === source.id ? 'animate-spin' : ''} />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => removeSource(source.id)}
+                                  className="text-gray-400 hover:text-red-500 p-1 rounded-md transition-colors"
+                                >
+                                  <X size={14} />
+                                </button>
+                             </div>
                         </div>
                     ))}
                 </div>
                  {sources.length > 0 && (
-                    <button 
-                        onClick={() => { setSources([]); setEvents([]); }}
-                        className="mt-4 text-xs text-red-500 hover:text-red-700 flex items-center justify-center gap-1 w-full py-2 border border-red-100 rounded-lg hover:bg-red-50 transition-colors"
-                    >
-                        <Trash2 size={12} /> Clear All
-                    </button>
+                    <div className="mt-4 flex gap-2">
+                      {sources.some(s => s.url) && (
+                        <button
+                            onClick={reloadAllSources}
+                            disabled={reloadingSourceId !== null}
+                            className="flex-1 text-xs text-purple-500 hover:text-purple-700 flex items-center justify-center gap-1 py-2 border border-purple-100 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-50"
+                        >
+                            <RefreshCw size={12} className={reloadingSourceId !== null ? 'animate-spin' : ''} /> Reload All
+                        </button>
+                      )}
+                      <button
+                          onClick={() => { setSources([]); setEvents([]); }}
+                          className="flex-1 text-xs text-red-500 hover:text-red-700 flex items-center justify-center gap-1 py-2 border border-red-100 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                          <Trash2 size={12} /> Clear All
+                      </button>
+                    </div>
                 )}
             </div>
         </div>
