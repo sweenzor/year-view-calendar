@@ -143,7 +143,8 @@ const MonthGrid = ({ year, month, events }) => {
                 colEnd, // CSS grid end (exclusive)
                 color,
                 rounded,
-                isContinuation: !isRealStart
+                isContinuation: !isRealStart || evt.start < monthStart,
+                isContinuedAfter: !isRealEnd || evt.end > monthEnd
             });
         }
 
@@ -221,24 +222,41 @@ const MonthGrid = ({ year, month, events }) => {
                 {daysInRow}
 
                 {/* Events Layer (Absolute on top of grid) */}
-                {stackedSegments.map((seg, idx) => (
+                {stackedSegments.map((seg, idx) => {
+                    const span = seg.colEnd - seg.colStart;
+                    const chevronPx = span === 1 ? 4 : 6;
+                    const hasLeft = seg.isContinuation;
+                    const hasRight = seg.isContinuedAfter;
+                    let clipPath;
+                    if (hasLeft && hasRight) {
+                      clipPath = `polygon(${chevronPx}px 0, calc(100% - ${chevronPx}px) 0, 100% 50%, calc(100% - ${chevronPx}px) 100%, ${chevronPx}px 100%, 0 50%)`;
+                    } else if (hasLeft) {
+                      clipPath = `polygon(${chevronPx}px 0, 100% 0, 100% 100%, ${chevronPx}px 100%, 0 50%)`;
+                    } else if (hasRight) {
+                      clipPath = `polygon(0 0, calc(100% - ${chevronPx}px) 0, 100% 50%, calc(100% - ${chevronPx}px) 100%, 0 100%)`;
+                    }
+                    return (
                     <div
                         key={`${seg.id}-${rowIndex}-${idx}`}
-                        className={`absolute flex items-center px-1 overflow-hidden shadow-sm text-[9px] leading-tight font-medium text-white hover:z-20 hover:opacity-90 transition-all cursor-pointer ${seg.color} ${seg.rounded} print:shadow-none print:border print:border-white/20 print:text-black`}
+                        className={`absolute flex items-center overflow-hidden shadow-sm text-[9px] leading-tight font-medium text-white hover:z-20 hover:opacity-90 transition-all cursor-pointer ${seg.color} ${!hasLeft && !hasRight ? 'rounded-md' : hasLeft && !hasRight ? 'rounded-r-md' : !hasLeft && hasRight ? 'rounded-l-md' : ''} print:shadow-none print:text-black`}
                         style={{
                             top: `${baseHeight + (seg.stackIndex * (eventHeight + gap))}rem`,
                             height: `${eventHeight}rem`,
-                            left: `calc(${((seg.colStart - 1) / 7) * 100}% + 1px)`,
-                            width: `calc(${((seg.colEnd - seg.colStart) / 7) * 100}% - 2px)`,
-                            zIndex: 10
+                            left: `calc(${((seg.colStart - 1) / 7) * 100}% + ${hasLeft ? '0px' : '1px'})`,
+                            width: `calc(${((seg.colEnd - seg.colStart) / 7) * 100}% - ${hasLeft && hasRight ? '0px' : hasLeft || hasRight ? '1px' : '2px'})`,
+                            zIndex: 10,
+                            paddingLeft: hasLeft ? `${chevronPx + 2}px` : '4px',
+                            paddingRight: hasRight ? `${chevronPx + 2}px` : '4px',
+                            clipPath
                         }}
                         title={seg.title}
                     >
                         <span className="truncate w-full">
-                            {seg.isContinuation ? '» ' : ''}{seg.title}
+                            {seg.title}
                         </span>
                     </div>
-                ))}
+                    );
+                })}
             </div>
         );
     });
