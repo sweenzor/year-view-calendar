@@ -1,87 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Upload, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Info, Link as LinkIcon, Trash2, Loader, Repeat, Printer, RefreshCw } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
-
-// --- ICS Parsing Utility ---
-const parseICS = (icsContent) => {
-  const events = [];
-  const lines = icsContent.split(/\r\n|\n|\r/);
-  let currentEvent = null;
-
-  const parseDate = (dateStr) => {
-    if (!dateStr) return null;
-    // Simple parsing for YYYYMMDD or YYYYMMDDTHHMMSS
-    const year = parseInt(dateStr.substring(0, 4));
-    const month = parseInt(dateStr.substring(4, 6)) - 1;
-    const day = parseInt(dateStr.substring(6, 8));
-    if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-    return new Date(year, month, day);
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line.startsWith('BEGIN:VEVENT')) {
-      currentEvent = {};
-    } else if (line.startsWith('END:VEVENT')) {
-      if (currentEvent) {
-        // Ensure title exists to prevent render errors
-        if (!currentEvent.title) currentEvent.title = "Untitled Event";
-        events.push(currentEvent);
-      }
-      currentEvent = null;
-    } else if (currentEvent) {
-      if (line.startsWith('SUMMARY:')) {
-        currentEvent.title = line.substring(8);
-      } else if (line.startsWith('DTSTART;VALUE=DATE:')) {
-        currentEvent.start = parseDate(line.substring(19));
-      } else if (line.startsWith('DTSTART:')) {
-        currentEvent.start = parseDate(line.substring(8));
-      } else if (line.startsWith('DTEND;VALUE=DATE:')) {
-        currentEvent.end = parseDate(line.substring(17));
-      } else if (line.startsWith('DTEND:')) {
-        currentEvent.end = parseDate(line.substring(6));
-      }
-    }
-  }
-
-  return events
-    .filter(e => e.start && e.end)
-    .map(e => {
-        const startDate = new Date(e.start);
-        startDate.setHours(0,0,0,0);
-        const endDate = new Date(e.end);
-        endDate.setHours(0,0,0,0);
-
-        // ICS DTEND for all-day events is exclusive (Aug 30 = last day Aug 29)
-        // Subtract one day so end represents the actual last day of the event
-        if (endDate.getTime() > startDate.getTime()) {
-            endDate.setDate(endDate.getDate() - 1);
-        }
-
-        const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-        const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive of both start and end
-
-        return { ...e, start: startDate, end: endDate, durationDays };
-    })
-    .filter(e => e.durationDays > 1); 
-};
-
-// --- Golden-angle Color Assignment ---
-// Assigns maximally-spaced hues so events in the same month look distinct.
-// Events sorted by start date → adjacent events (same timeframe) get the
-// most different colors. Varies lightness/saturation slightly for extra range.
-const GOLDEN_ANGLE = 137.508;
-const assignEventColors = (events) => {
-  const sorted = [...events].sort((a, b) => a.start - b.start || (a.title || '').localeCompare(b.title || ''));
-  const colorMap = new Map();
-  sorted.forEach((evt, i) => {
-    const hue = (i * GOLDEN_ANGLE) % 360;
-    const saturation = 58 + (i % 3) * 8;     // 58%, 66%, 74%
-    const lightness = 45 + (i % 4) * 5;      // 45%, 50%, 55%, 60%
-    colorMap.set(evt, `hsl(${hue.toFixed(1)}, ${saturation}%, ${lightness}%)`);
-  });
-  return colorMap;
-};
+import { parseICS, assignEventColors, eventColorKey } from './calendar-utils';
 
 // --- Mock Data Generator ---
 const generateMockEvents = (year) => {
@@ -138,12 +58,12 @@ const MonthGrid = ({ year, month, events, colorMap }) => {
         const colEnd = (endSlot % 7) + 2; // exclusive
 
         const evtTitle = evt.title || 'Untitled';
-        const color = colorMap?.get(evt) || 'hsl(210, 60%, 50%)';
+        const color = colorMap?.get(eventColorKey(evt)) || 'hsl(210, 60%, 50%)';
 
         // Rounded corners logic
         let rounded = "rounded-sm";
         const isRealStart = current.getTime() === evt.start.getTime();
-        const isRealEnd = segmentEnd.getDate() === evt.end.getDate() && segmentEnd.getMonth() === evt.end.getMonth() && segmentEnd.getFullYear() === evt.end.getFullYear();
+        const isRealEnd = segmentEnd.getTime() === evt.end.getTime();
         if (isRealStart && isRealEnd) rounded = "rounded-md";
         else if (isRealStart) rounded = "rounded-l-md";
         else if (isRealEnd) rounded = "rounded-r-md";
@@ -169,7 +89,7 @@ const MonthGrid = ({ year, month, events, colorMap }) => {
     });
 
     return segmentsByRow;
-  }, [year, month, events, colorMap, firstDayOfMonth, rowCount]);
+  }, [year, month, events, colorMap, firstDayOfMonth, rowCount]); // colorMap is stable-keyed, changes only when events change
 
   // 2. Render each week (row) independently
   const renderWeekRows = () => {
@@ -353,7 +273,7 @@ const App = () => {
         }
         return [...cleanPrev, { id: sourceId, name: sourceName, type: sourceType, url: sourceUrl }];
       });
-    } catch (err) {
+    } catch {
       alert(`Error parsing ${sourceName}.`);
     }
   };
@@ -372,60 +292,51 @@ const App = () => {
     });
   };
 
+  const fetchICSFromUrl = async (url) => {
+    const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server responded with ${response.status}: ${errorText}`);
+    }
+    return response.text();
+  };
+
+  const getCalendarName = (url) => {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname + (urlObj.pathname.length > 1 ? urlObj.pathname : '');
+    } catch {
+      return "Remote Calendar";
+    }
+  };
+
   const handleUrlSubmit = async (e) => {
     e.preventDefault();
     if (!urlInput) return;
-    
+
     // Auto-replace webcal:// with https://
     let cleanUrl = urlInput.trim();
     if (cleanUrl.startsWith('webcal://')) {
         cleanUrl = 'https://' + cleanUrl.substring(9);
     }
-    
+
     setIsLoadingUrl(true);
     try {
-        // Use the proxy server to avoid CORS issues
-        const proxyUrl = `/proxy?url=${encodeURIComponent(cleanUrl)}`;
-        const response = await fetch(proxyUrl);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Server responded with ${response.status}: ${errorText}`);
-        }
-        
-        const text = await response.text();
-        
-        let name = "Remote Calendar";
-        try {
-            const urlObj = new URL(cleanUrl);
-            name = urlObj.hostname + (urlObj.pathname.length > 1 ? urlObj.pathname : '');
-        } catch(e) {}
-
-        processICSData(text, name, 'url', cleanUrl);
+        const text = await fetchICSFromUrl(cleanUrl);
+        processICSData(text, getCalendarName(cleanUrl), 'url', cleanUrl);
         setUrlInput('');
     } catch (error) {
         console.error("Proxy fetch failed", error);
-
-        // Fallback to direct fetch only if it seems like a network error to the proxy itself
-        // But if proxy returned 4xx/5xx, it means proxy worked but upstream failed.
-        // We probably shouldn't fallback in that case, but let's be safe.
-        // Actually, if proxy failed (e.g. 500), trying direct fetch is unlikely to work for CORS reasons,
-        // but maybe the user is on a network where direct works (intranet?).
-
+        // Fallback to direct fetch (may work on intranets without CORS issues)
         try {
-            console.log("Attempting direct fetch fallback...");
             const response = await fetch(cleanUrl);
-             if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) throw new Error('Network response was not ok');
             const text = await response.text();
-             let name = "Remote Calendar";
-            try {
-                const urlObj = new URL(cleanUrl);
-                name = urlObj.hostname + (urlObj.pathname.length > 1 ? urlObj.pathname : '');
-            } catch(e) {}
-            processICSData(text, name, 'url', cleanUrl);
-             setUrlInput('');
-        } catch(fallbackError) {
-             const msg = error.message && error.message.includes('Server responded') 
+            processICSData(text, getCalendarName(cleanUrl), 'url', cleanUrl);
+            setUrlInput('');
+        } catch {
+             const msg = error.message && error.message.includes('Server responded')
                 ? `Import failed: ${error.message}`
                 : "Could not load URL. \n\nNote: Many calendar providers (like Google) block direct browser access via CORS. You may need to download the file manually and drag it in.";
              alert(msg);
@@ -441,10 +352,7 @@ const App = () => {
     if (!source.url) return;
     setReloadingSources(prev => new Set(prev).add(source.id));
     try {
-      const proxyUrl = `/proxy?url=${encodeURIComponent(source.url)}`;
-      const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
-      const text = await response.text();
+      const text = await fetchICSFromUrl(source.url);
       processICSData(text, source.name, 'url', source.url, source.id);
     } catch (error) {
       console.error("Reload failed", error);
