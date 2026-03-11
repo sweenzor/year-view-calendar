@@ -17,6 +17,8 @@ npm run preview   # Serve production build locally
 
 Docker alternative: `docker-compose up` exposes the same ports.
 
+When running via Docker, use `docker-compose exec app <command>` to run commands (e.g. `docker-compose exec app npm run lint`).
+
 ## Tech Stack
 
 - **React 19** with Vite 7 (JSX, no TypeScript)
