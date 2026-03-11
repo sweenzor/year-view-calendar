@@ -50,18 +50,17 @@ const parseICS = (icsContent) => {
         const startDate = new Date(e.start);
         startDate.setHours(0,0,0,0);
         const endDate = new Date(e.end);
-        
-        if (endDate.getTime() === startDate.getTime()) {
-             endDate.setDate(endDate.getDate() + 1);
-        } else if (endDate.getHours() === 0 && endDate.getMinutes() === 0 && endDate.getSeconds() === 0) {
-            if (endDate.getTime() > startDate.getTime()) { 
-                // midnight end check
-            }
+        endDate.setHours(0,0,0,0);
+
+        // ICS DTEND for all-day events is exclusive (Aug 30 = last day Aug 29)
+        // Subtract one day so end represents the actual last day of the event
+        if (endDate.getTime() > startDate.getTime()) {
+            endDate.setDate(endDate.getDate() - 1);
         }
 
         const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-        const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
+        const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive of both start and end
+
         return { ...e, start: startDate, end: endDate, durationDays };
     })
     .filter(e => e.durationDays > 1); 
@@ -113,7 +112,7 @@ const MonthGrid = ({ year, month, events, colorMap }) => {
   const weeklySegments = useMemo(() => {
     const segmentsByRow = Array.from({ length: rowCount }, () => []);
     const monthStart = new Date(year, month, 1);
-    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59);
+    const monthEnd = new Date(year, month + 1, 0); // last day of month at midnight
 
     events.forEach((evt, evtIdx) => {
       if (evt.end < monthStart || evt.start > monthEnd) return;
@@ -144,7 +143,7 @@ const MonthGrid = ({ year, month, events, colorMap }) => {
         // Rounded corners logic
         let rounded = "rounded-sm";
         const isRealStart = current.getTime() === evt.start.getTime();
-        const isRealEnd = segmentEnd.getTime() >= evt.end.getTime() - 86400000;
+        const isRealEnd = segmentEnd.getDate() === evt.end.getDate() && segmentEnd.getMonth() === evt.end.getMonth() && segmentEnd.getFullYear() === evt.end.getFullYear();
         if (isRealStart && isRealEnd) rounded = "rounded-md";
         else if (isRealStart) rounded = "rounded-l-md";
         else if (isRealEnd) rounded = "rounded-r-md";
@@ -286,7 +285,7 @@ const MonthGrid = ({ year, month, events, colorMap }) => {
             <span className="text-xs text-gray-400 print:text-gray-600">{year}</span>
           </div>
       </div>
-      
+
       {/* Headers */}
       <div className="grid grid-cols-7 gap-0 text-center mb-1">
         {['S','M','T','W','T','F','S'].map((d,i) => (
@@ -436,11 +435,11 @@ const App = () => {
     }
   };
 
-  const [reloadingSourceId, setReloadingSourceId] = useState(null);
+  const [reloadingSources, setReloadingSources] = useState(new Set());
 
   const reloadSource = async (source) => {
     if (!source.url) return;
-    setReloadingSourceId(source.id);
+    setReloadingSources(prev => new Set(prev).add(source.id));
     try {
       const proxyUrl = `/proxy?url=${encodeURIComponent(source.url)}`;
       const response = await fetch(proxyUrl);
@@ -451,15 +450,13 @@ const App = () => {
       console.error("Reload failed", error);
       alert(`Failed to reload ${source.name}`);
     } finally {
-      setReloadingSourceId(null);
+      setReloadingSources(prev => { const next = new Set(prev); next.delete(source.id); return next; });
     }
   };
 
   const reloadAllSources = async () => {
     const urlSources = sources.filter(s => s.url);
-    for (const source of urlSources) {
-      await reloadSource(source);
-    }
+    await Promise.all(urlSources.map(source => reloadSource(source)));
   };
 
   const removeSource = (sourceId) => {
@@ -642,11 +639,11 @@ const App = () => {
                                 {source.url && (
                                   <button
                                     onClick={() => reloadSource(source)}
-                                    disabled={reloadingSourceId === source.id}
+                                    disabled={reloadingSources.has(source.id)}
                                     className="text-gray-400 hover:text-purple-500 p-1 rounded-md transition-colors disabled:opacity-50"
                                     title="Reload calendar"
                                   >
-                                    <RefreshCw size={14} className={reloadingSourceId === source.id ? 'animate-spin' : ''} />
+                                    <RefreshCw size={14} className={reloadingSources.has(source.id) ? 'animate-spin' : ''} />
                                   </button>
                                 )}
                                 <button
@@ -664,10 +661,10 @@ const App = () => {
                       {sources.some(s => s.url) && (
                         <button
                             onClick={reloadAllSources}
-                            disabled={reloadingSourceId !== null}
+                            disabled={reloadingSources.size > 0}
                             className="flex-1 text-xs text-purple-500 hover:text-purple-700 flex items-center justify-center gap-1 py-2 border border-purple-100 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-50"
                         >
-                            <RefreshCw size={12} className={reloadingSourceId !== null ? 'animate-spin' : ''} /> Reload All
+                            <RefreshCw size={12} className={reloadingSources.size > 0 ? 'animate-spin' : ''} /> Reload All
                         </button>
                       )}
                       <button
