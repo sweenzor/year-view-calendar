@@ -1,8 +1,8 @@
 import { lookup } from 'node:dns/promises';
 import net from 'node:net';
 
-export const MAX_PROXY_RESPONSE_BYTES = 1024 * 1024;
-export const PROXY_TIMEOUT_MS = 10000;
+export const MAX_PROXY_RESPONSE_BYTES = 50 * 1024 * 1024;
+export const PROXY_TIMEOUT_MS = 120000;
 
 const PRIVATE_HOSTNAME_SUFFIXES = ['.internal', '.local', '.localhost'];
 const BLOCKED_HOSTNAMES = new Set([
