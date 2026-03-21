@@ -1,7 +1,38 @@
+// --- RFC 5545 Line Unfolding (§3.1) ---
+// Long lines are folded with CRLF followed by a single space or tab.
+// This step joins continuation lines back together before parsing.
+const unfoldLines = (icsContent) => {
+  return icsContent.replace(/\r\n[ \t]/g, '')
+                   .replace(/\n[ \t]/g, '')
+                   .replace(/\r[ \t]/g, '');
+};
+
+// --- RFC 5545 Character Unescaping ---
+// Unescape \\, \, , \;, and \n/\N in property values.
+// For title/summary fields, \n/\N becomes a space (newlines don't make sense in titles).
+const unescapeICSValue = (value, useSpaceForNewline = false) => {
+  let result = '';
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] === '\\' && i + 1 < value.length) {
+      const next = value[i + 1];
+      if (next === '\\') { result += '\\'; i++; }
+      else if (next === ',') { result += ','; i++; }
+      else if (next === ';') { result += ';'; i++; }
+      else if (next === 'n' || next === 'N') { result += useSpaceForNewline ? ' ' : '\n'; i++; }
+      else { result += value[i]; }
+    } else {
+      result += value[i];
+    }
+  }
+  return result;
+};
+
 // --- ICS Parsing Utility ---
 export const parseICS = (icsContent) => {
   const events = [];
-  const lines = icsContent.split(/\r\n|\n|\r/);
+  // Unfold continuation lines before splitting
+  const unfolded = unfoldLines(icsContent);
+  const lines = unfolded.split(/\r\n|\n|\r/);
   let currentEvent = null;
 
   const parseDate = (dateStr) => {
@@ -27,7 +58,7 @@ export const parseICS = (icsContent) => {
       currentEvent = null;
     } else if (currentEvent) {
       if (line.startsWith('SUMMARY:')) {
-        currentEvent.title = line.substring(8);
+        currentEvent.title = unescapeICSValue(line.substring(8), true);
       } else if (line.startsWith('DTSTART;VALUE=DATE:')) {
         currentEvent.start = parseDate(line.substring(19));
       } else if (line.startsWith('DTSTART:')) {

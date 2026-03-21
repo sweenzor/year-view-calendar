@@ -124,6 +124,64 @@ describe('parseICS', () => {
     expect(parseICS('')).toEqual([]);
     expect(parseICS('not ics content')).toEqual([]);
   });
+
+  // --- RFC 5545 Line Unfolding ---
+  it('unfolds folded SUMMARY lines (CRLF + space)', () => {
+    // Manually build ICS with folded SUMMARY line
+    const ics = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Very Long\r\n  Title Here\r\nDTSTART;VALUE=DATE:20260101\r\nDTEND;VALUE=DATE:20260105\r\nEND:VEVENT\r\nEND:VCALENDAR';
+    const events = parseICS(ics);
+    expect(events).toHaveLength(1);
+    expect(events[0].title).toBe('Very Long Title Here');
+  });
+
+  it('unfolds folded DTSTART lines', () => {
+    // DTSTART split across two lines
+    const ics = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Test\r\nDTSTART;VALUE=DA\r\n TE:20260101\r\nDTEND;VALUE=DATE:20260105\r\nEND:VEVENT\r\nEND:VCALENDAR';
+    const events = parseICS(ics);
+    expect(events).toHaveLength(1);
+    expect(events[0].start).toEqual(new Date(2026, 0, 1));
+  });
+
+  // --- RFC 5545 Character Unescaping ---
+  it('unescapes commas in SUMMARY', () => {
+    const ics = makeICS([{
+      summary: 'Hello\\, World',
+      dtstart: 'DTSTART;VALUE=DATE:20260101',
+      dtend: 'DTEND;VALUE=DATE:20260105',
+    }]);
+    const events = parseICS(ics);
+    expect(events[0].title).toBe('Hello, World');
+  });
+
+  it('unescapes semicolons in SUMMARY', () => {
+    const ics = makeICS([{
+      summary: 'Part A\\; Part B',
+      dtstart: 'DTSTART;VALUE=DATE:20260101',
+      dtend: 'DTEND;VALUE=DATE:20260105',
+    }]);
+    const events = parseICS(ics);
+    expect(events[0].title).toBe('Part A; Part B');
+  });
+
+  it('unescapes backslashes in SUMMARY', () => {
+    const ics = makeICS([{
+      summary: 'Path\\\\Name',
+      dtstart: 'DTSTART;VALUE=DATE:20260101',
+      dtend: 'DTEND;VALUE=DATE:20260105',
+    }]);
+    const events = parseICS(ics);
+    expect(events[0].title).toBe('Path\\Name');
+  });
+
+  it('unescapes \\n in SUMMARY as space (not newline)', () => {
+    const ics = makeICS([{
+      summary: 'Line One\\nLine Two',
+      dtstart: 'DTSTART;VALUE=DATE:20260101',
+      dtend: 'DTEND;VALUE=DATE:20260105',
+    }]);
+    const events = parseICS(ics);
+    expect(events[0].title).toBe('Line One Line Two');
+  });
 });
 
 // ==========================================================

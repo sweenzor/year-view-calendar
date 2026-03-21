@@ -74,6 +74,16 @@ To rebuild the image after changing dependencies (e.g. `package.json`):
 docker compose up --build
 ```
 
+### Running Lint
+
+```bash
+npm run lint                               # local
+docker compose exec app npm run lint       # via Docker Compose
+docker exec year-view-calendar-app-1 npm run lint  # via OrbStack running container
+```
+
+If you're using OrbStack, the Compose-managed container is typically named `year-view-calendar-app-1`.
+
 ### Running Tests
 
 ```bash
