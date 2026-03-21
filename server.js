@@ -6,9 +6,50 @@ import { MAX_PROXY_RESPONSE_BYTES, PROXY_TIMEOUT_MS, validateProxyUrl } from './
 const app = express();
 const port = 3001;
 
+// Security headers
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  next();
+});
+
 app.use(cors());
 
+// ---------------------------------------------------------------------------
+// Simple in-memory sliding-window rate limiter (no dependencies)
+// Allows RATE_LIMIT_MAX requests per RATE_LIMIT_WINDOW_MS per IP.
+// ---------------------------------------------------------------------------
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 10;
+const requestLog = new Map();
+
+setInterval(() => {
+  const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
+  for (const [ip, timestamps] of requestLog) {
+    const filtered = timestamps.filter((t) => t > cutoff);
+    if (filtered.length === 0) {
+      requestLog.delete(ip);
+    } else {
+      requestLog.set(ip, filtered);
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS);
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  const timestamps = (requestLog.get(ip) || []).filter((t) => t > cutoff);
+  timestamps.push(now);
+  requestLog.set(ip, timestamps);
+  return timestamps.length > RATE_LIMIT_MAX;
+}
+
 app.get('/proxy', async (req, res) => {
+  const clientIp = req.ip || req.socket.remoteAddress;
+  if (isRateLimited(clientIp)) {
+    return res.status(429).send('Too many requests. Please try again later.');
+  }
+
   const { url } = req.query;
   if (typeof url !== 'string' || !url.trim()) {
     return res.status(400).send('A calendar URL is required.');
