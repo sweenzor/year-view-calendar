@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
+import { MAX_PROXY_RESPONSE_BYTES, PROXY_TIMEOUT_MS, validateProxyUrl } from './proxy-utils.js';
 
 const app = express();
 const port = 3001;
@@ -9,28 +10,42 @@ app.use(cors());
 
 app.get('/proxy', async (req, res) => {
   const { url } = req.query;
-  if (!url) {
-    console.log('Proxy request missing URL');
-    return res.status(400).send('URL is required');
+  if (typeof url !== 'string' || !url.trim()) {
+    return res.status(400).send('A calendar URL is required.');
   }
 
-  console.log(`Proxying request for: ${url}`);
+  const validation = await validateProxyUrl(url);
+  if (!validation.ok) {
+    return res.status(validation.status).send(validation.message);
+  }
 
   try {
-    const response = await axios.get(url, {
+    const response = await axios.get(validation.url.toString(), {
       responseType: 'text',
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+      timeout: PROXY_TIMEOUT_MS,
+      maxContentLength: MAX_PROXY_RESPONSE_BYTES,
+      maxBodyLength: MAX_PROXY_RESPONSE_BYTES,
+      maxRedirects: 3,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; YearViewCalendar/1.0)',
+      },
     });
-    console.log('Proxy request successful');
-    res.send(response.data);
+
+    res.type('text/calendar').send(response.data);
   } catch (error) {
-    console.error('Error fetching URL:', error.message);
     if (error.response) {
-        console.error('Response status:', error.response.status);
-        res.status(error.response.status).send(error.message);
-    } else {
-        res.status(500).send('Error fetching URL: ' + error.message);
+      return res.status(error.response.status).send(`The remote calendar responded with status ${error.response.status}.`);
     }
+
+    if (error.code === 'ECONNABORTED') {
+      return res.status(504).send('The remote calendar took too long to respond.');
+    }
+
+    if (error.message?.toLowerCase().includes('maxcontentlength')) {
+      return res.status(413).send('The remote calendar is too large to import.');
+    }
+
+    return res.status(502).send('The remote calendar could not be fetched.');
   }
 });
 

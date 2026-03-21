@@ -1,241 +1,38 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { Upload, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Info, Link as LinkIcon, Trash2, Loader, Repeat, Printer, RefreshCw } from 'lucide-react';
+import { Info, X } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 import { useReactToPrint } from 'react-to-print';
-import { parseICS, assignEventColors, eventColorKey } from './calendar-utils';
+import { getDisplayedMonths } from './calendar-layout';
+import { CalendarGrid } from './components/CalendarGrid';
+import { CalendarToolbar } from './components/CalendarToolbar';
+import { ImportPanel } from './components/ImportPanel';
+import { SourceList } from './components/SourceList';
+import { useCalendarSources } from './useCalendarSources';
 
-// --- Mock Data Generator ---
-const generateMockEvents = (year) => {
-  return [
-    { id: 'mock-1', sourceId: 'mock', title: "Winter Vacation", start: new Date(year, 0, 5), end: new Date(year, 0, 12) },
-    { id: 'mock-2', sourceId: 'mock', title: "Conference in NY", start: new Date(year, 2, 10), end: new Date(year, 2, 14) },
-    { id: 'mock-3', sourceId: 'mock', title: "Project Sprint", start: new Date(year, 4, 1), end: new Date(year, 4, 15) },
-    { id: 'mock-4', sourceId: 'mock', title: "Summer Roadtrip", start: new Date(year, 6, 20), end: new Date(year, 7, 5) },
-    { id: 'mock-5', sourceId: 'mock', title: "Design Workshop", start: new Date(year, 8, 12), end: new Date(year, 8, 14) },
-    { id: 'mock-6', sourceId: 'mock', title: "Holiday Break", start: new Date(year, 11, 24), end: new Date(year, 11, 31) },
-    // Add intentional overlap for demonstration
-    { id: 'mock-7', sourceId: 'mock', title: "Overlap Test A", start: new Date(year, 4, 5), end: new Date(year, 4, 10) },
-    { id: 'mock-8', sourceId: 'mock', title: "Overlap Test B", start: new Date(year, 4, 8), end: new Date(year, 4, 12) },
-  ];
-};
-
-// --- Components ---
-
-const MonthGrid = ({ year, month, events, colorMap }) => {
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = new Date(year, month, 1).getDay(); 
-  const totalSlots = daysInMonth + firstDayOfMonth;
-  const rowCount = Math.ceil(totalSlots / 7);
-  
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-  // 1. Slice events into weekly segments
-  const weeklySegments = useMemo(() => {
-    const segmentsByRow = Array.from({ length: rowCount }, () => []);
-    const monthStart = new Date(year, month, 1);
-    const monthEnd = new Date(year, month + 1, 0); // last day of month at midnight
-
-    events.forEach((evt, evtIdx) => {
-      if (evt.end < monthStart || evt.start > monthEnd) return;
-
-      const displayStart = evt.start < monthStart ? monthStart : evt.start;
-      const displayEnd = evt.end > monthEnd ? monthEnd : evt.end;
-
-      let current = new Date(displayStart);
-      while (current <= displayEnd) {
-        const weekDay = current.getDay();
-        const daysUntilEndOfWeek = 6 - weekDay;
-        let segmentEnd = new Date(current);
-        segmentEnd.setDate(current.getDate() + daysUntilEndOfWeek);
-        if (segmentEnd > displayEnd) segmentEnd = new Date(displayEnd);
-        
-        const startDayOfM = current.getDate();
-        const endDayOfM = segmentEnd.getDate();
-        const startSlot = firstDayOfMonth + startDayOfM - 1;
-        const endSlot = firstDayOfMonth + endDayOfM - 1;
-
-        const row = Math.floor(startSlot / 7);
-        const colStart = (startSlot % 7) + 1;
-        const colEnd = (endSlot % 7) + 2; // exclusive
-
-        const evtTitle = evt.title || 'Untitled';
-        const color = colorMap?.get(eventColorKey(evt)) || 'hsl(210, 60%, 50%)';
-
-        // Rounded corners logic
-        let rounded = "rounded-sm";
-        const isRealStart = current.getTime() === evt.start.getTime();
-        const isRealEnd = segmentEnd.getTime() === evt.end.getTime();
-        if (isRealStart && isRealEnd) rounded = "rounded-md";
-        else if (isRealStart) rounded = "rounded-l-md";
-        else if (isRealEnd) rounded = "rounded-r-md";
-        else rounded = "";
-
-        if (row < rowCount && segmentsByRow[row]) {
-            segmentsByRow[row].push({
-                id: evt.id || `${evtTitle}-${evtIdx}-${startSlot}`, // unique key helper
-                title: evtTitle,
-                colStart,
-                colEnd, // CSS grid end (exclusive)
-                color,
-                rounded,
-                isContinuation: !isRealStart || evt.start < monthStart,
-                isContinuedAfter: !isRealEnd || evt.end > monthEnd
-            });
-        }
-
-        current = new Date(segmentEnd);
-        current.setDate(current.getDate() + 1);
-        if (current > displayEnd) break;
-      }
-    });
-
-    return segmentsByRow;
-  }, [year, month, events, colorMap, firstDayOfMonth, rowCount]); // colorMap is stable-keyed, changes only when events change
-
-  // 2. Render each week (row) independently
-  const renderWeekRows = () => {
-    return weeklySegments.map((segments, rowIndex) => {
-        // -- Stacking Algorithm --
-        segments.sort((a, b) => {
-            if (a.colStart !== b.colStart) return a.colStart - b.colStart;
-            return (b.colEnd - b.colStart) - (a.colEnd - a.colStart);
-        });
-
-        const lanes = []; 
-        const stackedSegments = segments.map(seg => {
-            let laneIndex = -1;
-            for (let i = 0; i < lanes.length; i++) {
-                if (lanes[i] <= seg.colStart) {
-                    laneIndex = i;
-                    break;
-                }
-            }
-            if (laneIndex === -1) {
-                laneIndex = lanes.length;
-                lanes.push(0);
-            }
-            lanes[laneIndex] = seg.colEnd;
-            return { ...seg, stackIndex: laneIndex };
-        });
-
-        const itemsInStack = lanes.length;
-        const baseHeight = 1.5; 
-        const eventHeight = 1.25; 
-        const gap = 0.125; 
-        
-        const containerHeight = Math.max(baseHeight + 0.5, baseHeight + (itemsInStack * (eventHeight + gap)) + 0.5); 
-
-        // Generate Static Grid Cells for Day Numbers to ensure alignment
-        const daysInRow = [];
-        for (let col = 1; col <= 7; col++) {
-            const dayIndex = (rowIndex * 7) + col - firstDayOfMonth;
-            const isDay = dayIndex > 0 && dayIndex <= daysInMonth;
-            
-            daysInRow.push(
-                <div 
-                    key={`day-${col}`} 
-                    className="text-center text-xs text-gray-400 z-0"
-                    style={{ 
-                        height: `${baseHeight}rem`,
-                        lineHeight: `${baseHeight}rem`,
-                        gridColumnStart: col,
-                        gridRowStart: 1 
-                    }}
-                >
-                    {isDay ? dayIndex : ''}
-                </div>
-            );
-        }
-
-        return (
-            <div 
-                key={`row-${rowIndex}`} 
-                className="relative grid grid-cols-7 gap-x-0 w-full border-b border-gray-50 last:border-b-0 print:border-gray-200"
-                style={{ height: `${containerHeight}rem` }}
-            >
-                {/* Day Numbers Layer (Static Grid Items) */}
-                {daysInRow}
-
-                {/* Events Layer (Absolute on top of grid) */}
-                {stackedSegments.map((seg, idx) => {
-                    const span = seg.colEnd - seg.colStart;
-                    const chevronPx = span === 1 ? 4 : 6;
-                    const hasLeft = seg.isContinuation;
-                    const hasRight = seg.isContinuedAfter;
-                    let clipPath;
-                    if (hasLeft && hasRight) {
-                      clipPath = `polygon(${chevronPx}px 0, calc(100% - ${chevronPx}px) 0, 100% 50%, calc(100% - ${chevronPx}px) 100%, ${chevronPx}px 100%, 0 50%)`;
-                    } else if (hasLeft) {
-                      clipPath = `polygon(${chevronPx}px 0, 100% 0, 100% 100%, ${chevronPx}px 100%, 0 50%)`;
-                    } else if (hasRight) {
-                      clipPath = `polygon(0 0, calc(100% - ${chevronPx}px) 0, 100% 50%, calc(100% - ${chevronPx}px) 100%, 0 100%)`;
-                    }
-                    return (
-                    <div
-                        key={`${seg.id}-${rowIndex}-${idx}`}
-                        className={`absolute flex items-center overflow-hidden shadow-sm text-[9px] leading-tight font-medium text-white hover:z-20 hover:opacity-90 transition-all cursor-pointer ${!hasLeft && !hasRight ? 'rounded-md' : hasLeft && !hasRight ? 'rounded-r-md' : !hasLeft && hasRight ? 'rounded-l-md' : ''} print:shadow-none print:text-black`}
-                        style={{
-                            top: `${baseHeight + (seg.stackIndex * (eventHeight + gap))}rem`,
-                            height: `${eventHeight}rem`,
-                            left: `calc(${((seg.colStart - 1) / 7) * 100}% + ${hasLeft ? '0px' : '1px'})`,
-                            width: `calc(${((seg.colEnd - seg.colStart) / 7) * 100}% - ${hasLeft && hasRight ? '0px' : hasLeft || hasRight ? '1px' : '2px'})`,
-                            zIndex: 10,
-                            paddingLeft: hasLeft ? `${chevronPx + 2}px` : '4px',
-                            paddingRight: hasRight ? `${chevronPx + 2}px` : '4px',
-                            clipPath,
-                            backgroundColor: seg.color
-                        }}
-                        title={seg.title}
-                    >
-                        <span className="truncate w-full">
-                            {seg.title}
-                        </span>
-                    </div>
-                    );
-                })}
-            </div>
-        );
-    });
-  };
-
-  return (
-    <div className="flex flex-col mb-4 break-inside-avoid bg-white rounded-sm print:mb-2">
-      <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-100 print:mb-1 print:pb-0.5 print:border-gray-200">
-          <div className="flex items-baseline gap-1">
-            <h3 className="font-bold text-gray-800 text-sm print:text-black">{monthNames[month]}</h3>
-            <span className="text-xs text-gray-400 print:text-gray-600">{year}</span>
-          </div>
-      </div>
-
-      {/* Headers */}
-      <div className="grid grid-cols-7 gap-0 text-center mb-1">
-        {['S','M','T','W','T','F','S'].map((d,i) => (
-          <div key={i} className="text-[9px] text-gray-400 font-medium print:text-gray-600">{d}</div>
-        ))}
-      </div>
-      
-      {/* Week Rows */}
-      <div className="flex flex-col print-compact-rows">
-          {renderWeekRows()}
-      </div>
-    </div>
-  );
-};
-
-const App = () => {
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+const App = ({ initialDate = new Date() }) => {
+  const [baseDate] = useState(() => new Date(initialDate));
+  const [currentYear, setCurrentYear] = useState(baseDate.getFullYear());
   const [isRollingView, setIsRollingView] = useState(false);
-  
-  // State now holds a single flat list of events, but each event is tagged with a sourceId
-  const [events, setEvents] = useState(generateMockEvents(new Date().getFullYear()));
-  const [sources, setSources] = useState([{ id: 'mock', name: 'Example Data', type: 'mock' }]);
-  const [dragActive, setDragActive] = useState(false);
-  const [urlInput, setUrlInput] = useState('');
-  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
+  const {
+    events,
+    sources,
+    importFeedback,
+    isImportingUrl,
+    importFiles,
+    importUrl,
+    reloadSource,
+    reloadAllSources,
+    removeSource,
+    clearAllSources,
+    clearImportFeedback,
+  } = useCalendarSources(baseDate);
 
-  const colorMap = useMemo(() => assignEventColors(events), [events]);
-
-  const componentRef = useRef();
+  const componentRef = useRef(null);
+  const displayedMonths = useMemo(() => getDisplayedMonths({
+    selectedYear: currentYear,
+    isRollingView,
+    baseDate,
+  }), [baseDate, currentYear, isRollingView]);
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
@@ -245,408 +42,68 @@ const App = () => {
         size: portrait;
         margin: 5mm;
       }
-    `
+    `,
   });
 
-  const processICSData = (content, sourceName, sourceType, sourceUrl = null, existingSourceId = null) => {
-    try {
-      const parsedEvents = parseICS(content);
-      const sourceId = existingSourceId || Date.now().toString() + Math.random().toString(36).substr(2, 9);
-
-      // Tag events with source ID
-      const taggedEvents = parsedEvents.map(e => ({
-        ...e,
-        sourceId
-      }));
-
-      setEvents(prev => {
-        // Remove mock events and any existing events for this source
-        const cleanPrev = prev.filter(e => e.sourceId !== 'mock' && e.sourceId !== sourceId);
-        return [...cleanPrev, ...taggedEvents];
-      });
-      setSources(prev => {
-        // Remove mock source if present
-        const cleanPrev = prev.filter(s => s.id !== 'mock');
-        if (existingSourceId) {
-          // Update existing source in place
-          return cleanPrev.map(s => s.id === sourceId ? { ...s, name: sourceName, type: sourceType, url: sourceUrl } : s);
-        }
-        return [...cleanPrev, { id: sourceId, name: sourceName, type: sourceType, url: sourceUrl }];
-      });
-    } catch {
-      alert(`Error parsing ${sourceName}.`);
-    }
-  };
-
-  const handleFiles = (fileList) => {
-    Array.from(fileList).forEach(file => {
-      if (file.name.endsWith('.ics')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            processICSData(e.target.result, file.name, 'file');
-        };
-        reader.readAsText(file);
-      } else {
-          alert(`Skipping ${file.name}: Not an .ics file`);
-      }
-    });
-  };
-
-  const fetchICSFromUrl = async (url) => {
-    const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl);
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Server responded with ${response.status}: ${errorText}`);
-    }
-    return response.text();
-  };
-
-  const getCalendarName = (url) => {
-    try {
-      const urlObj = new URL(url);
-      return urlObj.hostname + (urlObj.pathname.length > 1 ? urlObj.pathname : '');
-    } catch {
-      return "Remote Calendar";
-    }
-  };
-
-  const handleUrlSubmit = async (e) => {
-    e.preventDefault();
-    if (!urlInput) return;
-
-    // Auto-replace webcal:// with https://
-    let cleanUrl = urlInput.trim();
-    if (cleanUrl.startsWith('webcal://')) {
-        cleanUrl = 'https://' + cleanUrl.substring(9);
-    }
-
-    setIsLoadingUrl(true);
-    try {
-        const text = await fetchICSFromUrl(cleanUrl);
-        processICSData(text, getCalendarName(cleanUrl), 'url', cleanUrl);
-        setUrlInput('');
-    } catch (error) {
-        console.error("Proxy fetch failed", error);
-        // Fallback to direct fetch (may work on intranets without CORS issues)
-        try {
-            const response = await fetch(cleanUrl);
-            if (!response.ok) throw new Error('Network response was not ok');
-            const text = await response.text();
-            processICSData(text, getCalendarName(cleanUrl), 'url', cleanUrl);
-            setUrlInput('');
-        } catch {
-             const msg = error.message && error.message.includes('Server responded')
-                ? `Import failed: ${error.message}`
-                : "Could not load URL. \n\nNote: Many calendar providers (like Google) block direct browser access via CORS. You may need to download the file manually and drag it in.";
-             alert(msg);
-        }
-    } finally {
-        setIsLoadingUrl(false);
-    }
-  };
-
-  const [reloadingSources, setReloadingSources] = useState(new Set());
-
-  const reloadSource = async (source) => {
-    if (!source.url) return;
-    setReloadingSources(prev => new Set(prev).add(source.id));
-    try {
-      const text = await fetchICSFromUrl(source.url);
-      processICSData(text, source.name, 'url', source.url, source.id);
-    } catch (error) {
-      console.error("Reload failed", error);
-      alert(`Failed to reload ${source.name}`);
-    } finally {
-      setReloadingSources(prev => { const next = new Set(prev); next.delete(source.id); return next; });
-    }
-  };
-
-  const reloadAllSources = async () => {
-    const urlSources = sources.filter(s => s.url);
-    await Promise.all(urlSources.map(source => reloadSource(source)));
-  };
-
-  const removeSource = (sourceId) => {
-    setSources(prev => prev.filter(s => s.id !== sourceId));
-    setEvents(prev => prev.filter(e => e.sourceId !== sourceId));
-  };
-
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files);
-    }
-  };
-
-  const handleFileInput = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      handleFiles(e.target.files);
-    }
-  };
-  
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900 p-4 md:p-8 font-sans print:bg-white print:p-0">
       <div className="max-w-7xl mx-auto print:max-w-none print:mx-0">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-xl shadow-sm border border-gray-100 no-print">
-          <div className="mb-4 md:mb-0">
-            <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
-              <CalendarIcon className="text-blue-600" />
-              Yearly Planner
-            </h1>
-            <p className="text-gray-500 mt-1">Visualizing multi-day events (24h+)</p>
-          </div>
+        <CalendarToolbar
+          currentYear={currentYear}
+          isRollingView={isRollingView}
+          onPreviousYear={() => setCurrentYear((year) => year - 1)}
+          onNextYear={() => setCurrentYear((year) => year + 1)}
+          onToggleView={() => setIsRollingView((value) => !value)}
+          onPrint={handlePrint}
+        />
 
-          <div className="flex items-center gap-4">
-
-             {/* Print Button */}
-             <button
-                onClick={handlePrint}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                title="Print Calendar"
-             >
-                <Printer size={16} />
-                Print
-             </button>
-            
-             {/* View Mode Toggle */}
-             <button
-               onClick={() => setIsRollingView(!isRollingView)}
-               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isRollingView ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-               title={isRollingView ? "Switch to Calendar Year" : "Switch to Rolling 12 Months"}
-             >
-               <Repeat size={16} />
-               {isRollingView ? "Next 12 Months" : "Calendar Year"}
-             </button>
-
-             {/* Year Navigation */}
-             <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                <button 
-                  onClick={() => setCurrentYear(y => y - 1)}
-                  className="p-2 hover:bg-white rounded-md transition-colors text-gray-600"
-                  title="Previous Year"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <span className="px-4 font-bold text-lg w-20 text-center">{currentYear}</span>
-                <button 
-                  onClick={() => setCurrentYear(y => y + 1)}
-                  className="p-2 hover:bg-white rounded-md transition-colors text-gray-600"
-                  title="Next Year"
-                >
-                  <ChevronRight size={20} />
-                </button>
-             </div>
-          </div>
-        </div>
-
-        {/* Controls Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 no-print">
-            
-            {/* 1. Import Panel */}
-            <div 
-              className={`lg:col-span-2 border-2 border-dashed rounded-xl p-6 flex flex-col justify-center transition-colors ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'}`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-            >
-                <div className="flex flex-col md:flex-row gap-6 items-center">
-                    {/* File Upload */}
-                    <div className="flex-1 w-full flex flex-col items-center md:items-start">
-                         <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                                <Upload size={20} />
-                            </div>
-                            <h3 className="font-bold text-gray-800">File Upload</h3>
-                        </div>
-                        <p className="text-sm text-gray-500 mb-4 text-center md:text-left">
-                            Drag & drop .ics files here
-                        </p>
-                        <input 
-                            type="file" 
-                            id="ics-upload" 
-                            accept=".ics" 
-                            multiple
-                            className="hidden" 
-                            onChange={handleFileInput}
-                        />
-                        <label 
-                            htmlFor="ics-upload"
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium cursor-pointer transition-colors text-sm w-full md:w-auto text-center"
-                        >
-                            Choose Files
-                        </label>
-                    </div>
+          <ImportPanel
+            onImportFiles={importFiles}
+            onImportUrl={importUrl}
+            onClearFeedback={clearImportFeedback}
+            importFeedback={importFeedback}
+            isImportingUrl={isImportingUrl}
+          />
 
-                    <div className="hidden md:block w-px h-24 bg-gray-200"></div>
-
-                    {/* URL Upload */}
-                    <div className="flex-1 w-full">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
-                                <LinkIcon size={20} />
-                            </div>
-                            <h3 className="font-bold text-gray-800">Import from URL</h3>
-                        </div>
-                        <form onSubmit={handleUrlSubmit} className="flex gap-2">
-                            <input 
-                                type="text" 
-                                placeholder="https://example.com/calendar.ics" 
-                                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                value={urlInput}
-                                onChange={e => setUrlInput(e.target.value)}
-                            />
-                            <button 
-                                type="submit" 
-                                disabled={isLoadingUrl}
-                                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center"
-                            >
-                                {isLoadingUrl ? <Loader size={16} className="animate-spin" /> : 'Add'}
-                            </button>
-                        </form>
-                        <p className="text-xs text-gray-400 mt-2">
-                            Note: Some providers (like Google) may block direct URL access due to CORS.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* 2. Loaded Sources List */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center justify-between">
-                    <span>Loaded Calendars</span>
-                    <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{events.length} events</span>
-                </h3>
-                
-                <div className="flex-1 overflow-y-auto max-h-48 space-y-2 pr-1 custom-scrollbar">
-                    {sources.length === 0 && (
-                        <p className="text-sm text-gray-400 italic text-center py-4">No calendars loaded</p>
-                    )}
-                    {sources.map(source => (
-                        <div key={source.id} className="flex items-center justify-between group bg-gray-50 hover:bg-gray-100 p-2 rounded-lg transition-colors">
-                             <div className="flex items-center gap-2 overflow-hidden">
-                                <div className={`w-2 h-2 rounded-full shrink-0 ${source.type === 'mock' ? 'bg-blue-400' : source.type === 'url' ? 'bg-purple-400' : 'bg-green-400'}`}></div>
-                                <span className="text-sm text-gray-700 truncate" title={source.name}>{source.name}</span>
-                             </div>
-                             <div className="flex items-center gap-1">
-                                {source.url && (
-                                  <button
-                                    onClick={() => reloadSource(source)}
-                                    disabled={reloadingSources.has(source.id)}
-                                    className="text-gray-400 hover:text-purple-500 p-1 rounded-md transition-colors disabled:opacity-50"
-                                    title="Reload calendar"
-                                  >
-                                    <RefreshCw size={14} className={reloadingSources.has(source.id) ? 'animate-spin' : ''} />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => removeSource(source.id)}
-                                  className="text-gray-400 hover:text-red-500 p-1 rounded-md transition-colors"
-                                >
-                                  <X size={14} />
-                                </button>
-                             </div>
-                        </div>
-                    ))}
-                </div>
-                 {sources.length > 0 && (
-                    <div className="mt-4 flex gap-2">
-                      {sources.some(s => s.url) && (
-                        <button
-                            onClick={reloadAllSources}
-                            disabled={reloadingSources.size > 0}
-                            className="flex-1 text-xs text-purple-500 hover:text-purple-700 flex items-center justify-center gap-1 py-2 border border-purple-100 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-50"
-                        >
-                            <RefreshCw size={12} className={reloadingSources.size > 0 ? 'animate-spin' : ''} /> Reload All
-                        </button>
-                      )}
-                      <button
-                          onClick={() => { setSources([]); setEvents([]); }}
-                          className="flex-1 text-xs text-red-500 hover:text-red-700 flex items-center justify-center gap-1 py-2 border border-red-100 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                          <Trash2 size={12} /> Clear All
-                      </button>
-                    </div>
-                )}
-            </div>
+          <SourceList
+            sources={sources}
+            eventsCount={events.length}
+            onReloadSource={reloadSource}
+            onReloadAllSources={reloadAllSources}
+            onRemoveSource={removeSource}
+            onClearAllSources={clearAllSources}
+          />
         </div>
 
-        {/* Legend */}
         {showInfo && (
-            <div className="relative flex items-start gap-2 mb-6 text-sm text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-100 no-print">
-              <Info size={18} className="text-blue-500 mt-0.5 shrink-0" />
-              <p className="pr-6">
-                This view automatically filters out short meetings. Only events lasting <strong>longer than 24 hours</strong> are displayed. 
-                Events appear as solid blocks labeled with their title, spanning across days.
-              </p>
-              <button 
-                onClick={() => setShowInfo(false)} 
-                className="absolute top-2 right-2 p-1 hover:bg-blue-100 rounded-full text-gray-400 hover:text-blue-500 transition-colors"
-                title="Dismiss"
-              >
-                  <X size={14} />
-              </button>
-            </div>
+          <div className="relative flex items-start gap-2 mb-6 text-sm text-gray-700 bg-blue-50 p-4 rounded-lg border border-blue-100 no-print">
+            <Info size={18} className="text-blue-500 mt-0.5 shrink-0" />
+            <p className="pr-6">
+              This view only shows events lasting longer than <strong>24 hours</strong>.
+              File imports stay in your browser. URL imports may pass through the configured proxy server before falling back to a direct browser request.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowInfo(false)}
+              aria-label="Dismiss information banner"
+              className="absolute top-2 right-2 p-1 hover:bg-blue-100 rounded-full text-gray-500 hover:text-blue-600 transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </div>
         )}
 
-        {/* Calendar Grid */}
-        <div ref={componentRef} className="print-container">
-            {/* Print Header - Visible only when printing */}
-            <div className="hidden print:flex items-center justify-between mb-4 border-b border-gray-300 pb-2">
-                 <h1 className="text-2xl font-bold text-gray-800">
-                     Yearly Planner {currentYear}
-                 </h1>
-                 <span className="text-sm text-gray-500">
-                     {isRollingView ? `Rolling View (Starting ${new Date().toLocaleString('default', { month: 'long' })})` : 'Calendar Year'}
-                 </span>
-            </div>
+        <CalendarGrid
+          componentRef={componentRef}
+          displayedMonths={displayedMonths}
+          events={events}
+          isRollingView={isRollingView}
+        />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none">
-            {Array.from({ length: 12 }).map((_, index) => {
-                // Logic to calculate exact Month/Year for this grid cell based on View Mode
-                let displayMonth = index;
-                let displayYear = currentYear;
-
-                if (isRollingView) {
-                    const today = new Date();
-                    const startMonth = today.getMonth(); // 0-11
-                    const targetMonthIndex = startMonth + index;
-                    displayMonth = targetMonthIndex % 12;
-                    displayYear = currentYear + Math.floor(targetMonthIndex / 12);
-                }
-
-                return (
-                <MonthGrid 
-                    key={`${displayYear}-${displayMonth}`} 
-                    year={displayYear} 
-                    month={displayMonth} 
-                    events={events}
-                    colorMap={colorMap}
-                />
-                );
-            })}
-            </div>
+        <div className="mt-12 text-center text-gray-500 text-sm no-print">
+          <p>File imports stay in your browser. URL imports may transit the proxy server when direct access is unavailable.</p>
         </div>
-        
-        <div className="mt-12 text-center text-gray-400 text-sm no-print">
-          <p>Privacy Note: All processing happens in your browser. Your calendar data is not sent to any server.</p>
-        </div>
-
       </div>
     </div>
   );
