@@ -10,4 +10,8 @@ export default defineConfig({
       '/proxy': 'http://localhost:3001',
     },
   },
+  test: {
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
+  },
 })
