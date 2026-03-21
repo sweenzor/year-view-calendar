@@ -15,33 +15,32 @@ app.use((_req, res, next) => {
 
 app.use(cors());
 
-// ---------------------------------------------------------------------------
-// Simple in-memory sliding-window rate limiter (no dependencies)
-// Allows RATE_LIMIT_MAX requests per RATE_LIMIT_WINDOW_MS per IP.
-// ---------------------------------------------------------------------------
+// In-memory rate limiter — no external dependencies to keep the server lightweight.
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
-const requestLog = new Map();
+const rateCounts = new Map();
 
-setInterval(() => {
-  const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
-  for (const [ip, timestamps] of requestLog) {
-    const filtered = timestamps.filter((t) => t > cutoff);
-    if (filtered.length === 0) {
-      requestLog.delete(ip);
-    } else {
-      requestLog.set(ip, filtered);
+const cleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of rateCounts) {
+    if (now >= record.resetTime) {
+      rateCounts.delete(ip);
     }
   }
 }, RATE_LIMIT_WINDOW_MS);
+cleanupInterval.unref();
 
 function isRateLimited(ip) {
   const now = Date.now();
-  const cutoff = now - RATE_LIMIT_WINDOW_MS;
-  const timestamps = (requestLog.get(ip) || []).filter((t) => t > cutoff);
-  timestamps.push(now);
-  requestLog.set(ip, timestamps);
-  return timestamps.length > RATE_LIMIT_MAX;
+  const record = rateCounts.get(ip);
+
+  if (!record || now >= record.resetTime) {
+    rateCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+
+  record.count += 1;
+  return record.count > RATE_LIMIT_MAX;
 }
 
 app.get('/proxy', async (req, res) => {
