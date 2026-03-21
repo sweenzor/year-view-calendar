@@ -1,15 +1,40 @@
 import { startTransition, useCallback, useEffect, useReducer, useState } from 'react';
 import { fetchCalendarTextWithFallback, getCalendarName, isSupportedCalendarUrl, normalizeCalendarUrl, readFileAsText } from './calendar-import';
-import { normalizeCalendarData } from './calendar-utils';
 import { calendarSourcesReducer, createInitialCalendarState, createSourceId } from './calendar-sources';
+import ParseWorker from './calendar-parse-worker.js?worker';
 
-const applyImportedContent = (dispatch, content, {
+const parseInWorker = (content, sourceId) => {
+  return new Promise((resolve, reject) => {
+    const worker = new ParseWorker();
+    worker.onmessage = (event) => {
+      worker.terminate();
+      if (event.data.error) {
+        reject(new Error(event.data.error));
+      } else {
+        resolve(
+          event.data.events.map((e) => ({
+            ...e,
+            start: new Date(e.start),
+            end: new Date(e.end),
+          })),
+        );
+      }
+    };
+    worker.onerror = (error) => {
+      worker.terminate();
+      reject(new Error(error.message || 'Calendar parsing failed.'));
+    };
+    worker.postMessage({ content, sourceId });
+  });
+};
+
+const applyImportedContent = async (dispatch, content, {
   sourceId,
   sourceName,
   sourceType,
   sourceUrl = null,
 }) => {
-  const events = normalizeCalendarData(content, { sourceId });
+  const events = await parseInWorker(content, sourceId);
   startTransition(() => {
     dispatch({
       type: 'APPLY_IMPORTED_SOURCE',
@@ -64,7 +89,7 @@ export const useCalendarSources = (baseDate) => {
 
       try {
         const content = await readFileAsText(file);
-        applyImportedContent(dispatch, content, {
+        await applyImportedContent(dispatch, content, {
           sourceId: createSourceId(),
           sourceName: file.name,
           sourceType: 'file',
@@ -101,7 +126,7 @@ export const useCalendarSources = (baseDate) => {
 
     try {
       const content = await fetchCalendarTextWithFallback(normalizedUrl);
-      applyImportedContent(dispatch, content, {
+      await applyImportedContent(dispatch, content, {
         sourceId: createSourceId(),
         sourceName: getCalendarName(normalizedUrl),
         sourceType: 'url',
@@ -131,7 +156,7 @@ export const useCalendarSources = (baseDate) => {
 
     try {
       const content = await fetchCalendarTextWithFallback(source.url);
-      applyImportedContent(dispatch, content, {
+      await applyImportedContent(dispatch, content, {
         sourceId: source.id,
         sourceName: source.name,
         sourceType: 'url',
