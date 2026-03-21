@@ -1,4 +1,4 @@
-import { startTransition, useReducer, useState } from 'react';
+import { startTransition, useEffect, useReducer, useState } from 'react';
 import { fetchCalendarTextWithFallback, getCalendarName, isSupportedCalendarUrl, normalizeCalendarUrl, readFileAsText } from './calendar-import';
 import { normalizeCalendarData } from './calendar-utils';
 import { calendarSourcesReducer, createInitialCalendarState, createSourceId } from './calendar-sources';
@@ -40,6 +40,14 @@ export const useCalendarSources = (baseDate) => {
   const clearImportFeedback = () => {
     dispatch({ type: 'CLEAR_IMPORT_FEEDBACK' });
   };
+
+  // Auto-dismiss feedback after 8 seconds
+  useEffect(() => {
+    if (state.importFeedback) {
+      const timer = setTimeout(clearImportFeedback, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [state.importFeedback]);
 
   const importFiles = async (fileList) => {
     const files = Array.from(fileList || []);
