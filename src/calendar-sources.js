@@ -40,6 +40,14 @@ export const createSourceId = () => {
     || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
+export const createSourceIdFromUrl = (url) => {
+  let hash = 0;
+  for (let i = 0; i < url.length; i++) {
+    hash = ((hash << 5) - hash + url.charCodeAt(i)) | 0;
+  }
+  return `url-${(hash >>> 0).toString(36)}`;
+};
+
 export const createInitialCalendarState = (baseDate = new Date()) => {
   return {
     events: createMockEvents(baseDate.getFullYear()),
