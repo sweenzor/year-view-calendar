@@ -1,5 +1,7 @@
 # Year-view Calendar
 
+**[yearview.life](https://yearview.life/)**
+
 A React-based yearly planner designed to visualize long-term events. This application automatically filters out short meetings and focuses on displaying multi-day events (lasting longer than 24 hours) in a clean, continuous view.
 
 ## Features
@@ -11,8 +13,8 @@ A React-based yearly planner designed to visualize long-term events. This applic
     *   **Reload:** Re-fetch URL-imported calendars individually or all at once.
 *   **Flexible Views:**
     *   **Calendar Year:** Standard Jan-Dec view.
-    *   **Rolling 12-Months:** View the next 12 months starting from today.
-*   **Privacy First:** All data processing happens entirely in your browser. No calendar data is ever sent to a server.
+    *   **Rolling 12-Months:** View a 12-month window starting from the current month in the selected year.
+*   **Privacy-Aware Imports:** File imports stay in your browser. URL imports may transit the local proxy server when direct browser access is blocked.
 *   **Visual Clarity:**
     *   Continuous event bars spanning across days and weeks.
     *   Chevron-shaped bars at week and month boundaries show event continuation.
@@ -27,7 +29,7 @@ A React-based yearly planner designed to visualize long-term events. This applic
 *   **Icons:** [Lucide React](https://lucide.dev/)
 *   **Print:** [react-to-print](https://github.com/MatthewHerb662/react-to-print)
 *   **Testing:** [Vitest](https://vitest.dev/)
-*   **Date Parsing:** Custom ICS parser (no heavy external date libraries)
+*   **Date Parsing:** [ical.js](https://github.com/kewisch/ical.js/) with app-side normalization for long-event display
 
 ## Getting Started
 
@@ -74,18 +76,29 @@ To rebuild the image after changing dependencies (e.g. `package.json`):
 docker compose up --build
 ```
 
+### Running Lint
+
+```bash
+npm run lint                               # local
+docker compose exec app npm run lint       # via Docker Compose
+docker exec year-view-calendar-app-1 npm run lint  # via OrbStack running container
+```
+
+If you're using OrbStack, the Compose-managed container is typically named `year-view-calendar-app-1`.
+
 ### Running Tests
 
 ```bash
-npx vitest run                    # local
-docker compose exec app npx vitest run  # via Docker
+npm test                               # local
+docker compose exec app npm test       # via Docker
+docker exec year-view-calendar-app-1 npm test  # via OrbStack running container
 ```
 
 ## Usage
 
 1.  **Import Data:** Drag an `.ics` file (exported from Google Calendar, Apple Calendar, or Outlook) onto the "File Upload" drop zone, or paste a calendar URL.
 2.  **Navigate:** Use the arrow keys next to the year to switch years.
-3.  **Toggle View:** Click "Next 12 Months" to switch between a static year view and a rolling view.
+3.  **Toggle View:** Click "Next 12 Months" to switch between a static year view and a rolling 12-month view anchored to the selected year.
 4.  **Manage Sources:** See loaded calendars in the side panel. Reload URL sources, remove individual sources, or clear all data.
 5.  **Print:** Use the print button for an optimized 3-column yearly layout.
 
