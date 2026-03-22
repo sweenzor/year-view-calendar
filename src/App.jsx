@@ -101,9 +101,20 @@ const App = ({ initialDate = new Date() }) => {
           isRollingView={isRollingView}
         />
 
-        <div className="mt-12 text-center text-gray-500 text-sm no-print">
-          <p>File imports stay in your browser. URL imports may transit the proxy server when direct access is unavailable.</p>
-        </div>
+        <footer className="mt-12 text-center text-gray-400 text-sm no-print">
+          <p>
+            File imports stay in your browser. URL imports may transit the proxy server when direct access is unavailable.
+            {' '}
+            <a
+              href="https://github.com/sweenzor/year-view-calendar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-gray-600 transition-colors"
+            >
+              Code on GitHub
+            </a>
+          </p>
+        </footer>
       </div>
     </div>
   );
