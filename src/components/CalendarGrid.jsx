@@ -65,7 +65,7 @@ const MonthGrid = memo(({ monthLayout, hiddenEventIds, onToggleEvent }) => {
                   aria-label={segment.ariaLabel}
                   onClick={() => onToggleEvent(segment.id)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleEvent(segment.id); } }}
-                  className={`absolute flex items-center overflow-hidden shadow-sm text-[9px] leading-tight font-medium hover:z-20 transition-all cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${!hasLeft && !hasRight ? 'rounded-md' : hasLeft && !hasRight ? 'rounded-r-md' : !hasLeft && hasRight ? 'rounded-l-md' : ''} print:shadow-none print:text-black ${isHidden ? 'opacity-30 print:invisible' : 'hover:opacity-90'}`}
+                  className={`absolute flex items-center overflow-hidden shadow-sm text-[9px] leading-tight font-medium hover:z-20 transition-all cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${!hasLeft && !hasRight ? 'rounded-md' : hasLeft && !hasRight ? 'rounded-r-md' : !hasLeft && hasRight ? 'rounded-l-md' : ''} print:shadow-none print:text-black ${isHidden ? 'opacity-30' : 'hover:opacity-90'}`}
                   style={{
                     top: `${1.5 + (segment.stackIndex * (1.25 + 0.125))}rem`,
                     height: '1.25rem',
@@ -98,6 +98,16 @@ export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingV
     [displayedMonths, events, colorMap],
   );
 
+  const printEvents = useMemo(
+    () => hiddenEventIds.size > 0 ? events.filter((e) => !hiddenEventIds.has(e.id)) : events,
+    [events, hiddenEventIds],
+  );
+  const printColorMap = useMemo(() => assignEventColors(printEvents), [printEvents]);
+  const printLayouts = useMemo(
+    () => hiddenEventIds.size > 0 ? buildCalendarLayouts({ displayedMonths, events: printEvents, colorMap: printColorMap }) : null,
+    [displayedMonths, printEvents, printColorMap, hiddenEventIds],
+  );
+
   const rollingLabel = monthLayouts[0] ? `${monthLayouts[0].monthName} ${monthLayouts[0].year}` : '';
 
   return (
@@ -111,11 +121,19 @@ export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingV
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none">
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none ${printLayouts ? 'print:hidden' : ''}`}>
         {monthLayouts.map((monthLayout) => (
           <MonthGrid key={monthLayout.key} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} />
         ))}
       </div>
+
+      {printLayouts && (
+        <div className="hidden print:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none">
+          {printLayouts.map((monthLayout) => (
+            <MonthGrid key={monthLayout.key} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
