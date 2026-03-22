@@ -121,16 +121,16 @@ export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingV
         </span>
       </div>
 
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none ${printLayouts ? 'print:hidden' : ''}`}>
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none ${printLayouts ? 'screen-only' : ''}`}>
         {monthLayouts.map((monthLayout) => (
           <MonthGrid key={monthLayout.key} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} />
         ))}
       </div>
 
       {printLayouts && (
-        <div className="hidden print:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none">
+        <div className="hidden print-only-grid print:p-0 print:gap-4 print:shadow-none print:border-none">
           {printLayouts.map((monthLayout) => (
-            <MonthGrid key={monthLayout.key} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} />
+            <MonthGrid key={`print-${monthLayout.key}`} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} />
           ))}
         </div>
       )}
