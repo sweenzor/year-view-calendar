@@ -34,6 +34,7 @@ class MockFileReader {
 
 describe('App', () => {
   beforeEach(() => {
+    localStorage.clear();
     vi.stubGlobal('fetch', vi.fn());
     vi.stubGlobal('FileReader', MockFileReader);
   });
