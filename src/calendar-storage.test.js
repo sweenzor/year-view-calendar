@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { clearCalendarUrls, loadCalendarUrls, saveCalendarUrls } from './calendar-storage';
+import { clearCalendarUrls, loadCalendarUrls, loadHiddenEventIds, saveCalendarUrls, saveHiddenEventIds } from './calendar-storage';
 
 describe('calendar-storage', () => {
   beforeEach(() => {
@@ -78,5 +78,21 @@ describe('calendar-storage', () => {
     ]);
     clearCalendarUrls();
     expect(loadCalendarUrls()).toEqual([]);
+  });
+
+  it('saves and loads hidden event IDs', () => {
+    const ids = new Set(['event-1', 'event-2']);
+    saveHiddenEventIds(ids);
+    expect(loadHiddenEventIds()).toEqual(ids);
+  });
+
+  it('returns empty set when no hidden events stored', () => {
+    expect(loadHiddenEventIds()).toEqual(new Set());
+  });
+
+  it('clears hidden events when set is empty', () => {
+    saveHiddenEventIds(new Set(['event-1']));
+    saveHiddenEventIds(new Set());
+    expect(loadHiddenEventIds()).toEqual(new Set());
   });
 });
