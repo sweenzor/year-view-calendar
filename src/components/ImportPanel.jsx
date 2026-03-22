@@ -80,7 +80,7 @@ export const ImportPanel = ({
             className="hidden"
             onChange={handleFileInput}
           />
-          <div className="flex-1 flex items-start">
+          <div className="flex items-start">
             <label
               htmlFor="ics-upload"
               className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium cursor-pointer transition-colors text-sm w-full md:w-auto text-center"
@@ -89,10 +89,8 @@ export const ImportPanel = ({
               Choose Files
             </label>
           </div>
-          <p className="text-xs text-gray-500 pt-3 text-center md:text-left">
+          <p className="mt-3 text-xs text-gray-500">
             or drag &amp; drop <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> files here
-            <br />
-            &nbsp;
           </p>
         </div>
 
@@ -140,7 +138,16 @@ export const ImportPanel = ({
             Remember this URL on this device
           </label>
           <p className="text-xs text-gray-500 pt-3">
-            Paste a public <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> link.
+            Paste a public <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> link.{' '}
+            For Google Calendar, use the secret address from{' '}
+            <a
+              href="https://support.google.com/calendar/answer/37648?hl=en#zippy=%2Csecret-address"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-600 hover:text-purple-800 underline"
+            >
+              calendar settings
+            </a>.
             If you enable remembering, the full feed URL is stored in this browser so it can reload after refresh.
           </p>
         </div>
