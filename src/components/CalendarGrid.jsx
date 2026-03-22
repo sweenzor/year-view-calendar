@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react';
 import { assignEventColors } from '../calendar-utils';
 import { buildCalendarLayouts } from '../calendar-layout';
 
-const MonthGrid = memo(({ monthLayout }) => {
+const MonthGrid = memo(({ monthLayout, hiddenEventIds, onToggleEvent }) => {
   return (
     <div className="flex flex-col mb-4 break-inside-avoid bg-white rounded-sm print:mb-2">
       <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-100 print:mb-1 print:pb-0.5 print:border-gray-200">
@@ -47,6 +47,7 @@ const MonthGrid = memo(({ monthLayout }) => {
               const chevronPx = span === 1 ? 4 : 6;
               const hasLeft = segment.isContinuation;
               const hasRight = segment.isContinuedAfter;
+              const isHidden = hiddenEventIds.has(segment.id);
               let clipPath;
               if (hasLeft && hasRight) {
                 clipPath = `polygon(${chevronPx}px 0, calc(100% - ${chevronPx}px) 0, 100% 50%, calc(100% - ${chevronPx}px) 100%, ${chevronPx}px 100%, 0 50%)`;
@@ -62,7 +63,9 @@ const MonthGrid = memo(({ monthLayout }) => {
                   role="note"
                   tabIndex={0}
                   aria-label={segment.ariaLabel}
-                  className={`absolute flex items-center overflow-hidden shadow-sm text-[9px] leading-tight font-medium hover:z-20 hover:opacity-90 transition-all cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${!hasLeft && !hasRight ? 'rounded-md' : hasLeft && !hasRight ? 'rounded-r-md' : !hasLeft && hasRight ? 'rounded-l-md' : ''} print:shadow-none print:text-black`}
+                  onClick={() => onToggleEvent(segment.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleEvent(segment.id); } }}
+                  className={`absolute flex items-center overflow-hidden shadow-sm text-[9px] leading-tight font-medium hover:z-20 transition-all cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${!hasLeft && !hasRight ? 'rounded-md' : hasLeft && !hasRight ? 'rounded-r-md' : !hasLeft && hasRight ? 'rounded-l-md' : ''} print:shadow-none print:text-black ${isHidden ? 'opacity-30 print:invisible' : 'hover:opacity-90'}`}
                   style={{
                     top: `${1.5 + (segment.stackIndex * (1.25 + 0.125))}rem`,
                     height: '1.25rem',
@@ -88,7 +91,7 @@ const MonthGrid = memo(({ monthLayout }) => {
   );
 });
 
-export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingView }) => {
+export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingView, hiddenEventIds, onToggleEvent }) => {
   const colorMap = useMemo(() => assignEventColors(events), [events]);
   const monthLayouts = useMemo(
     () => buildCalendarLayouts({ displayedMonths, events, colorMap }),
@@ -110,7 +113,7 @@ export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingV
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none">
         {monthLayouts.map((monthLayout) => (
-          <MonthGrid key={monthLayout.key} monthLayout={monthLayout} />
+          <MonthGrid key={monthLayout.key} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} />
         ))}
       </div>
     </div>
