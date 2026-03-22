@@ -71,9 +71,6 @@ export const ImportPanel = ({
             </div>
             <h3 className="font-bold text-gray-800">File Upload</h3>
           </div>
-          <p className="text-sm text-gray-500 mb-4 text-center md:text-left">
-            Drag &amp; drop `.ics` files here
-          </p>
           <input
             type="file"
             id="ics-upload"
@@ -89,6 +86,9 @@ export const ImportPanel = ({
           >
             Choose Files
           </label>
+          <p className="text-xs text-gray-500 mt-2 text-center md:text-left">
+            or drag &amp; drop <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> files here
+          </p>
         </div>
 
         <div className="hidden md:block w-px h-24 bg-gray-200" />
@@ -124,7 +124,16 @@ export const ImportPanel = ({
             </button>
           </form>
           <p className="text-xs text-gray-500 mt-2">
-            URL imports try the proxy first. If the browser can reach the feed directly, it will fall back to a direct request.
+            Paste a public <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> link.{' '}
+            For Google Calendar, use the secret address from{' '}
+            <a
+              href="https://support.google.com/calendar/answer/37648?hl=en#zippy=%2Csecret-address"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-600 hover:text-purple-800 underline"
+            >
+              calendar settings
+            </a>.
           </p>
         </div>
       </div>

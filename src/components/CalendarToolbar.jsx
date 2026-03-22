@@ -13,9 +13,9 @@ export const CalendarToolbar = ({
       <div className="mb-4 md:mb-0">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
           <CalendarIcon className="text-blue-600" />
-          Yearly Planner
+          Year-view Calendar
         </h1>
-        <p className="text-gray-500 mt-1">Visualizing multi-day events lasting longer than 24 hours</p>
+        <p className="text-gray-500 mt-1">Visualizing a year of multi-day events</p>
       </div>
 
       <div className="flex items-center gap-4">

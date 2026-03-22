@@ -36,7 +36,7 @@ const App = ({ initialDate = new Date() }) => {
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
-    documentTitle: `Yearly Planner - ${currentYear}`,
+    documentTitle: `Year-view Calendar - ${currentYear}`,
     pageStyle: `
       @page {
         size: portrait;
