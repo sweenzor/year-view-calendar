@@ -42,9 +42,10 @@ export const createSourceId = () => {
 
 export const createSourceIdFromUrl = (url) => {
   let hash = 0;
-  for (let i = 0; i < url.length; i++) {
-    hash = ((hash << 5) - hash + url.charCodeAt(i)) | 0;
+  for (let index = 0; index < url.length; index += 1) {
+    hash = ((hash << 5) - hash + url.charCodeAt(index)) | 0;
   }
+
   return `url-${(hash >>> 0).toString(36)}`;
 };
 

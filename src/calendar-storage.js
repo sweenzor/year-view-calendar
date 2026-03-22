@@ -1,10 +1,14 @@
 const STORAGE_KEY = 'calendarUrls';
 
-export const saveCalendarUrls = (sources) => {
+export const saveRememberedCalendarUrls = (sources) => {
   try {
     const entries = sources
-      .filter((s) => s.type === 'url' && s.url)
-      .map((s) => ({ url: s.url, name: s.name }));
+      .filter((source) => source.type === 'url' && source.url && source.rememberOnDevice)
+      .map((source) => ({
+        url: source.url,
+        name: source.name,
+      }));
+
     if (entries.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
     } else {
@@ -15,22 +19,23 @@ export const saveCalendarUrls = (sources) => {
   }
 };
 
-export const loadCalendarUrls = () => {
+export const loadRememberedCalendarUrls = () => {
   try {
     const json = localStorage.getItem(STORAGE_KEY);
     if (!json) return [];
+
     const parsed = JSON.parse(json);
     if (!Array.isArray(parsed)) return [];
-    // Support both old format (string[]) and new format ({url, name}[])
-    return parsed.map((entry) =>
-      typeof entry === 'string' ? { url: entry, name: null } : entry,
-    );
+
+    return parsed
+      .map((entry) => (typeof entry === 'string' ? { url: entry, name: null } : entry))
+      .filter((entry) => typeof entry?.url === 'string' && entry.url.trim());
   } catch {
     return [];
   }
 };
 
-export const clearCalendarUrls = () => {
+export const clearRememberedCalendarUrls = () => {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch {
