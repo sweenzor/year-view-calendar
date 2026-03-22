@@ -1,6 +1,6 @@
 # Year-view Calendar
 
-**[yearview.life](https://yearview.life/)**
+[https://yearview.life/](https://yearview.life/)
 
 A React-based yearly planner designed to visualize long-term events. This application automatically filters out short meetings and focuses on displaying multi-day events (lasting longer than 24 hours) in a clean, continuous view.
 
