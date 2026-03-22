@@ -2,11 +2,11 @@ const STORAGE_KEY = 'calendarUrls';
 
 export const saveCalendarUrls = (sources) => {
   try {
-    const urls = sources
+    const entries = sources
       .filter((s) => s.type === 'url' && s.url)
-      .map((s) => s.url);
-    if (urls.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(urls));
+      .map((s) => ({ url: s.url, name: s.name }));
+    if (entries.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
     } else {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -20,7 +20,11 @@ export const loadCalendarUrls = () => {
     const json = localStorage.getItem(STORAGE_KEY);
     if (!json) return [];
     const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    // Support both old format (string[]) and new format ({url, name}[])
+    return parsed.map((entry) =>
+      typeof entry === 'string' ? { url: entry, name: null } : entry,
+    );
   } catch {
     return [];
   }
