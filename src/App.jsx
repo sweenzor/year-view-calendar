@@ -1,7 +1,8 @@
 import { Info, X } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { getDisplayedMonths } from './calendar-layout';
+import { loadHiddenEventIds, saveHiddenEventIds } from './calendar-storage';
 import { CalendarGrid } from './components/CalendarGrid';
 import { CalendarToolbar } from './components/CalendarToolbar';
 import { ImportPanel } from './components/ImportPanel';
@@ -13,6 +14,7 @@ const App = ({ initialDate = new Date() }) => {
   const [currentYear, setCurrentYear] = useState(baseDate.getFullYear());
   const [isRollingView, setIsRollingView] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
+  const [hiddenEventIds, setHiddenEventIds] = useState(() => loadHiddenEventIds());
   const {
     events,
     sources,
@@ -26,6 +28,10 @@ const App = ({ initialDate = new Date() }) => {
     clearAllSources,
     clearImportFeedback,
   } = useCalendarSources(baseDate);
+
+  useEffect(() => {
+    saveHiddenEventIds(hiddenEventIds);
+  }, [hiddenEventIds]);
 
   const componentRef = useRef(null);
   const displayedMonths = useMemo(() => getDisplayedMonths({
@@ -99,6 +105,18 @@ const App = ({ initialDate = new Date() }) => {
           displayedMonths={displayedMonths}
           events={events}
           isRollingView={isRollingView}
+          hiddenEventIds={hiddenEventIds}
+          onToggleEvent={useCallback((eventId) => {
+            setHiddenEventIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(eventId)) {
+                next.delete(eventId);
+              } else {
+                next.add(eventId);
+              }
+              return next;
+            });
+          }, [])}
         />
 
         <footer className="mt-12 text-center text-gray-400 text-sm no-print">

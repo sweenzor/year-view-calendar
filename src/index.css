@@ -57,6 +57,16 @@
         grid-template-columns: repeat(3, 1fr) !important;
         gap: 1rem !important;
     }
+
+    .print-grid.screen-only {
+        display: none !important;
+    }
+
+    .print-only-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 1rem !important;
+    }
     
     /* Ensure no breaks inside months */
     .print-grid > div {
