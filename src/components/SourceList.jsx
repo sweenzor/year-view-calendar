@@ -1,10 +1,10 @@
-import { RefreshCw, Trash2, X } from 'lucide-react';
+import { FileText, Link, RefreshCw, Trash2, X } from 'lucide-react';
 import { SOURCE_STATUS } from '../calendar-sources';
 
-const SOURCE_DOT_COLORS = {
-  mock: 'bg-blue-400',
-  url: 'bg-purple-400',
-  file: 'bg-green-400',
+const SourceIcon = ({ type }) => {
+  if (type === 'url') return <Link size={14} className="shrink-0 text-purple-500" />;
+  if (type === 'file') return <FileText size={14} className="shrink-0 text-green-600" />;
+  return <FileText size={14} className="shrink-0 text-blue-400" />;
 };
 
 export const SourceList = ({
@@ -34,7 +34,7 @@ export const SourceList = ({
           <div key={source.id} className="rounded-lg border border-gray-100 bg-gray-50 p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 overflow-hidden">
-                <div className={`w-2 h-2 rounded-full shrink-0 ${SOURCE_DOT_COLORS[source.type] || 'bg-slate-400'}`} />
+                <SourceIcon type={source.type} />
                 <span className="text-sm text-gray-800 truncate" title={source.name}>{source.name}</span>
               </div>
               <div className="flex items-center gap-1">

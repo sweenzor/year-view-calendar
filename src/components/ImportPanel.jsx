@@ -47,7 +47,7 @@ export const ImportPanel = ({
 
   return (
     <div
-      className={`lg:col-span-2 border-2 border-dashed rounded-xl p-6 flex flex-col justify-center transition-colors ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'}`}
+      className={`lg:col-span-2 border-2 border-dashed rounded-xl p-6 flex flex-col transition-colors ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'}`}
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}
@@ -63,9 +63,9 @@ export const ImportPanel = ({
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row gap-6 items-center">
+      <div className="flex flex-col md:flex-row gap-6 items-stretch">
         <div className="flex-1 w-full flex flex-col items-center md:items-start">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
               <Upload size={20} />
             </div>
@@ -79,51 +79,57 @@ export const ImportPanel = ({
             className="hidden"
             onChange={handleFileInput}
           />
-          <label
-            htmlFor="ics-upload"
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium cursor-pointer transition-colors text-sm w-full md:w-auto text-center"
-            onClick={onClearFeedback}
-          >
-            Choose Files
-          </label>
-          <p className="text-xs text-gray-500 mt-2 text-center md:text-left">
+          <div className="flex-1 flex items-start">
+            <label
+              htmlFor="ics-upload"
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium cursor-pointer transition-colors text-sm w-full md:w-auto text-center"
+              onClick={onClearFeedback}
+            >
+              Choose Files
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 pt-3 text-center md:text-left">
             or drag &amp; drop <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> files here
+            <br />
+            &nbsp;
           </p>
         </div>
 
-        <div className="hidden md:block w-px h-24 bg-gray-200" />
+        <div className="hidden md:block w-px self-stretch bg-gray-200" />
 
-        <div className="flex-1 w-full">
-          <div className="flex items-center gap-3 mb-2">
+        <div className="flex-1 w-full flex flex-col">
+          <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
               <LinkIcon size={20} />
             </div>
             <h3 className="font-bold text-gray-800">Import from URL</h3>
           </div>
-          <form onSubmit={handleUrlSubmit} className="flex gap-2">
-            <label htmlFor="calendar-url" className="sr-only">Calendar URL</label>
-            <input
-              id="calendar-url"
-              type="url"
-              placeholder="https://example.com/calendar.ics"
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              value={urlInput}
-              onChange={(event) => {
-                if (importFeedback) {
-                  onClearFeedback();
-                }
-                setUrlInput(event.target.value);
-              }}
-            />
-            <button
-              type="submit"
-              disabled={isImportingUrl}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center"
-            >
-              {isImportingUrl ? <Loader size={16} className="animate-spin" /> : 'Add'}
-            </button>
-          </form>
-          <p className="text-xs text-gray-500 mt-2">
+          <div className="flex-1 flex items-start">
+            <form onSubmit={handleUrlSubmit} className="flex gap-2 w-full">
+              <label htmlFor="calendar-url" className="sr-only">Calendar URL</label>
+              <input
+                id="calendar-url"
+                type="url"
+                placeholder="https://example.com/calendar.ics"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                value={urlInput}
+                onChange={(event) => {
+                  if (importFeedback) {
+                    onClearFeedback();
+                  }
+                  setUrlInput(event.target.value);
+                }}
+              />
+              <button
+                type="submit"
+                disabled={isImportingUrl}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center"
+              >
+                {isImportingUrl ? <Loader size={16} className="animate-spin" /> : 'Add'}
+              </button>
+            </form>
+          </div>
+          <p className="text-xs text-gray-500 pt-3">
             Paste a public <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> link.{' '}
             For Google Calendar, use the secret address from{' '}
             <a
