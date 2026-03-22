@@ -11,13 +11,7 @@ const parseInWorker = (content, sourceId) => {
       if (event.data.error) {
         reject(new Error(event.data.error));
       } else {
-        resolve(
-          event.data.events.map((e) => ({
-            ...e,
-            start: new Date(e.start),
-            end: new Date(e.end),
-          })),
-        );
+        resolve(event.data.events);
       }
     };
     worker.onerror = (error) => {
