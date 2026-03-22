@@ -139,7 +139,7 @@ export const eventColorKey = (event) => `${event.start.getTime()}-${event.title 
 export const normalizeCalendarData = (icsContent, { sourceId = 'unknown-source' } = {}) => {
   const trimmedContent = icsContent?.trim();
   if (!trimmedContent) {
-    return [];
+    return { events: [], calendarName: null };
   }
 
   let calendarComponent;
@@ -149,10 +149,16 @@ export const normalizeCalendarData = (icsContent, { sourceId = 'unknown-source' 
     throw new Error('Invalid calendar data.');
   }
 
-  return calendarComponent
+  const calendarName = calendarComponent.getFirstPropertyValue('x-wr-calname')
+    || calendarComponent.getFirstPropertyValue('name')
+    || null;
+
+  const events = calendarComponent
     .getAllSubcomponents('vevent')
     .map((component, index) => normalizeCalendarEvent(component, index, sourceId))
     .filter(Boolean);
+
+  return { events, calendarName };
 };
 
 export const assignEventColors = (events) => {

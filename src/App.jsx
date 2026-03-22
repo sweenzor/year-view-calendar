@@ -57,7 +57,7 @@ const App = ({ initialDate = new Date() }) => {
           onPrint={handlePrint}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 no-print">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 no-print items-start">
           <ImportPanel
             onImportFiles={importFiles}
             onImportUrl={importUrl}

@@ -23,7 +23,7 @@ describe('normalizeCalendarData', () => {
       ]),
     ]);
 
-    const events = normalizeCalendarData(calendar, { sourceId: 'source-a' });
+    const { events } = normalizeCalendarData(calendar, { sourceId: 'source-a' });
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -47,7 +47,7 @@ describe('normalizeCalendarData', () => {
       ]),
     ]);
 
-    const events = normalizeCalendarData(calendar, { sourceId: 'source-b' });
+    const { events } = normalizeCalendarData(calendar, { sourceId: 'source-b' });
 
     expect(events).toHaveLength(1);
     expect(events[0].allDay).toBe(false);
@@ -66,7 +66,7 @@ describe('normalizeCalendarData', () => {
       ]),
     ]);
 
-    expect(normalizeCalendarData(calendar, { sourceId: 'source-c' })).toEqual([]);
+    expect(normalizeCalendarData(calendar, { sourceId: 'source-c' }).events).toEqual([]);
   });
 
   it('supports folded lines and parameterized properties', () => {
@@ -80,7 +80,7 @@ describe('normalizeCalendarData', () => {
       ]),
     ]);
 
-    const events = normalizeCalendarData(calendar, { sourceId: 'source-d' });
+    const { events } = normalizeCalendarData(calendar, { sourceId: 'source-d' });
 
     expect(events).toHaveLength(1);
     expect(events[0].title).toBe('Planning Retreat and Workshop');
@@ -97,13 +97,45 @@ describe('normalizeCalendarData', () => {
       ]),
     ]);
 
-    const events = normalizeCalendarData(calendar, { sourceId: 'source-e' });
+    const { events } = normalizeCalendarData(calendar, { sourceId: 'source-e' });
     expect(events).toHaveLength(1);
     expect(events[0].title).toBe('Untitled Event');
   });
 
   it('returns an empty array for empty input', () => {
-    expect(normalizeCalendarData('', { sourceId: 'empty' })).toEqual([]);
+    expect(normalizeCalendarData('', { sourceId: 'empty' })).toEqual({ events: [], calendarName: null });
+  });
+
+  it('extracts calendar name from X-WR-CALNAME', () => {
+    const calendar = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'X-WR-CALNAME:Work Travel',
+      'BEGIN:VEVENT',
+      'UID:named-1',
+      'SUMMARY:Trip',
+      'DTSTART;VALUE=DATE:20260501',
+      'DTEND;VALUE=DATE:20260505',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const { calendarName } = normalizeCalendarData(calendar, { sourceId: 'source-f' });
+    expect(calendarName).toBe('Work Travel');
+  });
+
+  it('returns null calendar name when none is set', () => {
+    const calendar = wrapCalendar([
+      makeEvent([
+        'UID:no-name',
+        'SUMMARY:Trip',
+        'DTSTART;VALUE=DATE:20260501',
+        'DTEND;VALUE=DATE:20260505',
+      ]),
+    ]);
+
+    const { calendarName } = normalizeCalendarData(calendar, { sourceId: 'source-g' });
+    expect(calendarName).toBeNull();
   });
 
   it('throws for malformed calendar data', () => {
