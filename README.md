@@ -1,6 +1,6 @@
 # Year-view Calendar
 
-**[yearview.life](https://yearview.life/)**
+[https://yearview.life/](https://yearview.life/)
 
 A React-based yearly planner designed to visualize long-term events. This application automatically filters out short meetings and focuses on displaying multi-day events (lasting longer than 24 hours) in a clean, continuous view.
 
@@ -14,7 +14,7 @@ A React-based yearly planner designed to visualize long-term events. This applic
 *   **Flexible Views:**
     *   **Calendar Year:** Standard Jan-Dec view.
     *   **Rolling 12-Months:** View a 12-month window starting from the current month in the selected year.
-*   **Privacy-Aware Imports:** File imports stay in your browser. URL imports may transit the local proxy server when direct browser access is blocked. Saved feed URLs are only stored when you explicitly opt in on that device.
+*   **Privacy-Aware Imports:** File imports stay in your browser. URL imports may transit the local development proxy or the production Cloudflare Pages Function when direct browser access is blocked. Saved feed URLs are only stored when you explicitly opt in on that device.
 *   **Visual Clarity:**
     *   Continuous event bars spanning across days and weeks.
     *   Chevron-shaped bars at week and month boundaries show event continuation.
@@ -69,7 +69,7 @@ You can also run the app with Docker — no local Node.js installation required.
 
 2.  Open your browser at `http://localhost:5173`.
 
-Source files are volume-mounted so hot reloading works — edits to files in `src/`, `index.html`, `vite.config.js`, `tailwind.config.js`, `postcss.config.js`, and `server.js` are reflected immediately without rebuilding.
+Source files are volume-mounted so hot reloading works — edits to files in `src/`, `functions/`, `index.html`, `vite.config.js`, `tailwind.config.js`, `postcss.config.js`, `proxy-shared.js`, `proxy-utils.js`, and `server.js` are reflected immediately without rebuilding.
 
 To rebuild the image after changing dependencies (e.g. `package.json`):
 ```bash
@@ -101,6 +101,10 @@ docker exec year-view-calendar-app-1 npm test  # via OrbStack running container
 3.  **Toggle View:** Click "Next 12 Months" to switch between a static year view and a rolling 12-month view anchored to the selected year.
 4.  **Manage Sources:** See loaded calendars in the side panel. Reload URL sources, remove individual sources, or clear all data.
 5.  **Print:** Use the print button for an optimized 3-column yearly layout.
+
+## Production Proxy Notes
+
+If you deploy on Cloudflare Pages, configure a rate-limiting or WAF rule for `/proxy` in the Cloudflare dashboard. The Pages Function now blocks cross-origin browser calls, validates DNS answers against private IP ranges, and rejects non-calendar bodies, but Cloudflare-side throttling is still the right backstop for production abuse control.
 
 ## License
 

@@ -7,10 +7,12 @@ services:
     volumes:
       # Mount source for hot reloading
       - ./src:/app/src
+      - ./functions:/app/functions
       - ./index.html:/app/index.html
       - ./vite.config.js:/app/vite.config.js
       - ./tailwind.config.js:/app/tailwind.config.js
       - ./postcss.config.js:/app/postcss.config.js
+      - ./proxy-shared.js:/app/proxy-shared.js
       - ./server.js:/app/server.js
       - ./proxy-utils.js:/app/proxy-utils.js
       # Prevent overwriting node_modules

@@ -1,119 +1,46 @@
 import { lookup as lookupAddress } from 'node:dns';
 import { lookup } from 'node:dns/promises';
-import net from 'node:net';
-
-export const MAX_PROXY_RESPONSE_BYTES = 25 * 1024 * 1024;
-export const PROXY_TIMEOUT_MS = 120000;
-export const MAX_PROXY_REDIRECTS = 3;
-export const PRIVATE_NETWORK_MESSAGE = 'Private or local network URLs are not allowed.';
-export const INVALID_REDIRECT_MESSAGE = 'The remote calendar redirected to an invalid URL.';
-
-const PRIVATE_HOSTNAME_SUFFIXES = ['.internal', '.local', '.localhost'];
-const BLOCKED_HOSTNAMES = new Set([
-  'localhost',
-  '0.0.0.0',
-  '::',
-  '::1',
-  'host.docker.internal',
-]);
-
-const IPV4_PRIVATE_RANGES = [
-  { start: '10.0.0.0', end: '10.255.255.255' },
-  { start: '127.0.0.0', end: '127.255.255.255' },
-  { start: '169.254.0.0', end: '169.254.255.255' },
-  { start: '172.16.0.0', end: '172.31.255.255' },
-  { start: '192.168.0.0', end: '192.168.255.255' },
-];
+import {
+  INVALID_REDIRECT_MESSAGE,
+  MAX_PROXY_REDIRECTS,
+  MAX_PROXY_RESPONSE_BYTES,
+  PRIVATE_NETWORK_MESSAGE,
+  PROXY_TIMEOUT_MS,
+  getIpVersion,
+  isBlockedHostname,
+  isPrivateIpAddress,
+  normalizeHostname,
+  parseRedirectTarget,
+  validateProxyUrlShape,
+} from './proxy-shared.js';
 
 const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
 
-const normalizeHostname = (hostname) => {
-  return hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
-};
-
-const ipv4ToInteger = (address) => {
-  return address.split('.').reduce((value, octet) => ((value << 8) + Number(octet)), 0);
-};
-
-export const isPrivateIpAddress = (address) => {
-  const normalizedAddress = normalizeHostname(address);
-  const ipVersion = net.isIP(normalizedAddress);
-  if (ipVersion === 4) {
-    const numericAddress = ipv4ToInteger(normalizedAddress);
-    return IPV4_PRIVATE_RANGES.some(({ start, end }) => {
-      return numericAddress >= ipv4ToInteger(start) && numericAddress <= ipv4ToInteger(end);
-    });
-  }
-
-  if (ipVersion === 6) {
-    if (normalizedAddress.startsWith('::ffff:')) {
-      return isPrivateIpAddress(normalizedAddress.slice('::ffff:'.length));
-    }
-
-    return normalizedAddress === '::'
-      || normalizedAddress === '::1'
-      || normalizedAddress.startsWith('fc')
-      || normalizedAddress.startsWith('fd')
-      || normalizedAddress.startsWith('fe80:');
-  }
-
-  return false;
-};
-
-export const isBlockedHostname = (hostname) => {
-  const normalized = normalizeHostname(hostname);
-  return BLOCKED_HOSTNAMES.has(normalized)
-    || PRIVATE_HOSTNAME_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+export {
+  INVALID_REDIRECT_MESSAGE,
+  MAX_PROXY_REDIRECTS,
+  MAX_PROXY_RESPONSE_BYTES,
+  PRIVATE_NETWORK_MESSAGE,
+  PROXY_TIMEOUT_MS,
+  isBlockedHostname,
+  isPrivateIpAddress,
 };
 
 export const validateProxyUrl = async (urlString) => {
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(urlString);
-  } catch {
-    return {
-      ok: false,
-      status: 400,
-      message: 'A valid calendar URL is required.',
-    };
+  const baseValidation = validateProxyUrlShape(urlString);
+  if (!baseValidation.ok) {
+    return baseValidation;
   }
 
-  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+  if (getIpVersion(baseValidation.normalizedHostname)) {
     return {
-      ok: false,
-      status: 400,
-      message: 'Only http:// and https:// URLs are supported.',
-    };
-  }
-
-  if (parsedUrl.username || parsedUrl.password) {
-    return {
-      ok: false,
-      status: 400,
-      message: 'URLs with embedded credentials are not supported.',
-    };
-  }
-
-  const normalizedHostname = normalizeHostname(parsedUrl.hostname);
-
-  if (isBlockedHostname(normalizedHostname)) {
-    return {
-      ok: false,
-      status: 403,
-      message: PRIVATE_NETWORK_MESSAGE,
-    };
-  }
-
-  if (net.isIP(normalizedHostname) && isPrivateIpAddress(normalizedHostname)) {
-    return {
-      ok: false,
-      status: 403,
-      message: PRIVATE_NETWORK_MESSAGE,
+      ok: true,
+      url: baseValidation.url,
     };
   }
 
   try {
-    const lookupResults = await lookup(normalizedHostname, { all: true, verbatim: true });
+    const lookupResults = await lookup(baseValidation.normalizedHostname, { all: true, verbatim: true });
     if (lookupResults.some((result) => isPrivateIpAddress(result.address))) {
       return {
         ok: false,
@@ -127,7 +54,7 @@ export const validateProxyUrl = async (urlString) => {
 
   return {
     ok: true,
-    url: parsedUrl,
+    url: baseValidation.url,
   };
 };
 
@@ -136,18 +63,12 @@ export const isRedirectStatus = (status) => {
 };
 
 export const resolveRedirectUrl = async (currentUrl, location) => {
-  let redirectedUrl;
-  try {
-    redirectedUrl = new URL(location, currentUrl);
-  } catch {
-    return {
-      ok: false,
-      status: 502,
-      message: INVALID_REDIRECT_MESSAGE,
-    };
+  const redirectTarget = parseRedirectTarget(currentUrl, location);
+  if (!redirectTarget.ok) {
+    return redirectTarget;
   }
 
-  return validateProxyUrl(redirectedUrl.toString());
+  return validateProxyUrl(redirectTarget.url.toString());
 };
 
 export const createSafeLookup = (lookupFn = lookupAddress) => {
