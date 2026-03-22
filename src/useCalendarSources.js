@@ -12,7 +12,7 @@ const parseInWorker = (content, sourceId) => {
       if (event.data.error) {
         reject(new Error(event.data.error));
       } else {
-        resolve(event.data.events);
+        resolve({ events: event.data.events, calendarName: event.data.calendarName });
       }
     };
     worker.onerror = (error) => {
@@ -29,14 +29,14 @@ const applyImportedContent = async (dispatch, content, {
   sourceType,
   sourceUrl = null,
 }) => {
-  const events = await parseInWorker(content, sourceId);
+  const { events, calendarName } = await parseInWorker(content, sourceId);
   startTransition(() => {
     dispatch({
       type: 'APPLY_IMPORTED_SOURCE',
       payload: {
         source: {
           id: sourceId,
-          name: sourceName,
+          name: calendarName || sourceName,
           type: sourceType,
           url: sourceUrl,
         },
@@ -46,8 +46,24 @@ const applyImportedContent = async (dispatch, content, {
   });
 };
 
+const createInitialState = (baseDate) => {
+  const savedEntries = loadCalendarUrls();
+  if (savedEntries.length > 0) {
+    const sources = savedEntries.map((entry) => ({
+      id: createSourceId(),
+      name: entry.name || getCalendarName(entry.url),
+      type: 'url',
+      url: entry.url,
+      status: 'loading',
+      error: null,
+    }));
+    return { events: [], sources, importFeedback: null };
+  }
+  return createInitialCalendarState(baseDate);
+};
+
 export const useCalendarSources = (baseDate) => {
-  const [state, dispatch] = useReducer(calendarSourcesReducer, baseDate, createInitialCalendarState);
+  const [state, dispatch] = useReducer(calendarSourcesReducer, baseDate, createInitialState);
   const [isImportingUrl, setIsImportingUrl] = useState(false);
   const hasLoadedUrlsRef = useRef(false);
 
@@ -76,25 +92,32 @@ export const useCalendarSources = (baseDate) => {
     }
   }, [state.sources]);
 
-  // Re-import saved URLs on mount
+  // Fetch saved URL sources on mount (sources already in state with loading status)
   useEffect(() => {
     hasLoadedUrlsRef.current = true;
     let stale = false;
 
-    const urls = loadCalendarUrls();
-    for (const url of urls) {
-      fetchCalendarTextWithFallback(url)
+    const urlSources = state.sources.filter((s) => s.type === 'url' && s.status === 'loading');
+    for (const source of urlSources) {
+      fetchCalendarTextWithFallback(source.url)
         .then((content) => {
           if (stale) return;
           return applyImportedContent(dispatch, content, {
-            sourceId: createSourceId(),
-            sourceName: getCalendarName(url),
+            sourceId: source.id,
+            sourceName: source.name,
             sourceType: 'url',
-            sourceUrl: url,
+            sourceUrl: source.url,
           });
         })
-        .catch(() => {
-          // Silent failure on reload
+        .catch((error) => {
+          if (stale) return;
+          dispatch({
+            type: 'SET_SOURCE_ERROR',
+            payload: {
+              sourceId: source.id,
+              error: error.message || `Failed to load ${source.name}.`,
+            },
+          });
         });
     }
 
@@ -102,7 +125,7 @@ export const useCalendarSources = (baseDate) => {
       stale = true;
       hasLoadedUrlsRef.current = false;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const importFiles = async (fileList) => {
     const files = Array.from(fileList || []);

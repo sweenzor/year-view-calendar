@@ -10,7 +10,7 @@ describe('calendar-storage', () => {
     localStorage.clear();
   });
 
-  it('saves and loads URL sources', () => {
+  it('saves and loads URL sources with names', () => {
     const sources = [
       { id: 'src-1', name: 'Work', type: 'url', url: 'https://example.com/work.ics', status: 'ready', error: null },
       { id: 'src-2', name: 'Personal', type: 'url', url: 'https://example.com/personal.ics', status: 'ready', error: null },
@@ -18,9 +18,21 @@ describe('calendar-storage', () => {
 
     saveCalendarUrls(sources);
     expect(loadCalendarUrls()).toEqual([
-      'https://example.com/work.ics',
-      'https://example.com/personal.ics',
+      { url: 'https://example.com/work.ics', name: 'Work' },
+      { url: 'https://example.com/personal.ics', name: 'Personal' },
     ]);
+  });
+
+  it('preserves source order', () => {
+    const sources = [
+      { id: 'src-3', name: 'C', type: 'url', url: 'https://c.com/cal.ics', status: 'ready', error: null },
+      { id: 'src-1', name: 'A', type: 'url', url: 'https://a.com/cal.ics', status: 'ready', error: null },
+      { id: 'src-2', name: 'B', type: 'url', url: 'https://b.com/cal.ics', status: 'ready', error: null },
+    ];
+
+    saveCalendarUrls(sources);
+    const loaded = loadCalendarUrls();
+    expect(loaded.map((e) => e.name)).toEqual(['C', 'A', 'B']);
   });
 
   it('ignores non-URL sources', () => {
@@ -31,7 +43,12 @@ describe('calendar-storage', () => {
     ];
 
     saveCalendarUrls(sources);
-    expect(loadCalendarUrls()).toEqual(['https://example.com/work.ics']);
+    expect(loadCalendarUrls()).toEqual([{ url: 'https://example.com/work.ics', name: 'Work' }]);
+  });
+
+  it('handles legacy string format', () => {
+    localStorage.setItem('calendarUrls', JSON.stringify(['https://example.com/old.ics']));
+    expect(loadCalendarUrls()).toEqual([{ url: 'https://example.com/old.ics', name: null }]);
   });
 
   it('removes storage when no URL sources remain', () => {
