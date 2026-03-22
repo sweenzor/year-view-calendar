@@ -1,8 +1,12 @@
+import { lookup as lookupAddress } from 'node:dns';
 import { lookup } from 'node:dns/promises';
 import net from 'node:net';
 
 export const MAX_PROXY_RESPONSE_BYTES = 25 * 1024 * 1024;
 export const PROXY_TIMEOUT_MS = 120000;
+export const MAX_PROXY_REDIRECTS = 3;
+export const PRIVATE_NETWORK_MESSAGE = 'Private or local network URLs are not allowed.';
+export const INVALID_REDIRECT_MESSAGE = 'The remote calendar redirected to an invalid URL.';
 
 const PRIVATE_HOSTNAME_SUFFIXES = ['.internal', '.local', '.localhost'];
 const BLOCKED_HOSTNAMES = new Set([
@@ -21,32 +25,43 @@ const IPV4_PRIVATE_RANGES = [
   { start: '192.168.0.0', end: '192.168.255.255' },
 ];
 
+const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
+
+const normalizeHostname = (hostname) => {
+  return hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+};
+
 const ipv4ToInteger = (address) => {
   return address.split('.').reduce((value, octet) => ((value << 8) + Number(octet)), 0);
 };
 
 export const isPrivateIpAddress = (address) => {
-  const ipVersion = net.isIP(address);
+  const normalizedAddress = normalizeHostname(address);
+  const ipVersion = net.isIP(normalizedAddress);
   if (ipVersion === 4) {
-    const numericAddress = ipv4ToInteger(address);
+    const numericAddress = ipv4ToInteger(normalizedAddress);
     return IPV4_PRIVATE_RANGES.some(({ start, end }) => {
       return numericAddress >= ipv4ToInteger(start) && numericAddress <= ipv4ToInteger(end);
     });
   }
 
   if (ipVersion === 6) {
-    const normalized = address.toLowerCase();
-    return normalized === '::1'
-      || normalized.startsWith('fc')
-      || normalized.startsWith('fd')
-      || normalized.startsWith('fe80:');
+    if (normalizedAddress.startsWith('::ffff:')) {
+      return isPrivateIpAddress(normalizedAddress.slice('::ffff:'.length));
+    }
+
+    return normalizedAddress === '::'
+      || normalizedAddress === '::1'
+      || normalizedAddress.startsWith('fc')
+      || normalizedAddress.startsWith('fd')
+      || normalizedAddress.startsWith('fe80:');
   }
 
   return false;
 };
 
 export const isBlockedHostname = (hostname) => {
-  const normalized = hostname.toLowerCase();
+  const normalized = normalizeHostname(hostname);
   return BLOCKED_HOSTNAMES.has(normalized)
     || PRIVATE_HOSTNAME_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
 };
@@ -79,29 +94,31 @@ export const validateProxyUrl = async (urlString) => {
     };
   }
 
-  if (isBlockedHostname(parsedUrl.hostname)) {
+  const normalizedHostname = normalizeHostname(parsedUrl.hostname);
+
+  if (isBlockedHostname(normalizedHostname)) {
     return {
       ok: false,
       status: 403,
-      message: 'Private or local network URLs are not allowed.',
+      message: PRIVATE_NETWORK_MESSAGE,
     };
   }
 
-  if (net.isIP(parsedUrl.hostname) && isPrivateIpAddress(parsedUrl.hostname)) {
+  if (net.isIP(normalizedHostname) && isPrivateIpAddress(normalizedHostname)) {
     return {
       ok: false,
       status: 403,
-      message: 'Private or local network URLs are not allowed.',
+      message: PRIVATE_NETWORK_MESSAGE,
     };
   }
 
   try {
-    const lookupResults = await lookup(parsedUrl.hostname, { all: true, verbatim: true });
+    const lookupResults = await lookup(normalizedHostname, { all: true, verbatim: true });
     if (lookupResults.some((result) => isPrivateIpAddress(result.address))) {
       return {
         ok: false,
         status: 403,
-        message: 'Private or local network URLs are not allowed.',
+        message: PRIVATE_NETWORK_MESSAGE,
       };
     }
   } catch {
@@ -111,5 +128,57 @@ export const validateProxyUrl = async (urlString) => {
   return {
     ok: true,
     url: parsedUrl,
+  };
+};
+
+export const isRedirectStatus = (status) => {
+  return REDIRECT_STATUS_CODES.has(status);
+};
+
+export const resolveRedirectUrl = async (currentUrl, location) => {
+  let redirectedUrl;
+  try {
+    redirectedUrl = new URL(location, currentUrl);
+  } catch {
+    return {
+      ok: false,
+      status: 502,
+      message: INVALID_REDIRECT_MESSAGE,
+    };
+  }
+
+  return validateProxyUrl(redirectedUrl.toString());
+};
+
+export const createSafeLookup = (lookupFn = lookupAddress) => {
+  return (hostname, _options, callback) => {
+    const normalizedHostname = normalizeHostname(hostname);
+    if (isBlockedHostname(normalizedHostname)) {
+      const error = new Error(PRIVATE_NETWORK_MESSAGE);
+      error.status = 403;
+      callback(error);
+      return;
+    }
+
+    lookupFn(normalizedHostname, { all: true, verbatim: true }, (error, addresses) => {
+      if (error) {
+        callback(error);
+        return;
+      }
+
+      if (!Array.isArray(addresses) || addresses.length === 0) {
+        callback(new Error('DNS lookup returned no results.'));
+        return;
+      }
+
+      if (addresses.some((result) => isPrivateIpAddress(result.address))) {
+        const privateAddressError = new Error(PRIVATE_NETWORK_MESSAGE);
+        privateAddressError.status = 403;
+        callback(privateAddressError);
+        return;
+      }
+
+      callback(null, addresses[0].address, addresses[0].family);
+    });
   };
 };
