@@ -10,6 +10,7 @@ export const ImportPanel = ({
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [urlInput, setUrlInput] = useState('');
+  const [rememberOnDevice, setRememberOnDevice] = useState(false);
 
   const handleDrag = (event) => {
     event.preventDefault();
@@ -39,7 +40,7 @@ export const ImportPanel = ({
 
   const handleUrlSubmit = async (event) => {
     event.preventDefault();
-    const succeeded = await onImportUrl(urlInput);
+    const succeeded = await onImportUrl(urlInput, { rememberOnDevice });
     if (succeeded) {
       setUrlInput('');
     }
@@ -129,17 +130,18 @@ export const ImportPanel = ({
               </button>
             </form>
           </div>
+          <label className="mt-3 inline-flex items-center gap-2 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={rememberOnDevice}
+              onChange={(event) => setRememberOnDevice(event.target.checked)}
+              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+            />
+            Remember this URL on this device
+          </label>
           <p className="text-xs text-gray-500 pt-3">
-            Paste a public <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> link.{' '}
-            For Google Calendar, use the secret address from{' '}
-            <a
-              href="https://support.google.com/calendar/answer/37648?hl=en#zippy=%2Csecret-address"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-purple-600 hover:text-purple-800 underline"
-            >
-              calendar settings
-            </a>.
+            Paste a public <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> link.
+            If you enable remembering, the full feed URL is stored in this browser so it can reload after refresh.
           </p>
         </div>
       </div>

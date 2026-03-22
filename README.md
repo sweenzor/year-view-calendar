@@ -14,7 +14,7 @@ A React-based yearly planner designed to visualize long-term events. This applic
 *   **Flexible Views:**
     *   **Calendar Year:** Standard Jan-Dec view.
     *   **Rolling 12-Months:** View a 12-month window starting from the current month in the selected year.
-*   **Privacy-Aware Imports:** File imports stay in your browser. URL imports may transit the local proxy server when direct browser access is blocked.
+*   **Privacy-Aware Imports:** File imports stay in your browser. URL imports may transit the local proxy server when direct browser access is blocked. Saved feed URLs are only stored when you explicitly opt in on that device.
 *   **Visual Clarity:**
     *   Continuous event bars spanning across days and weeks.
     *   Chevron-shaped bars at week and month boundaries show event continuation.
@@ -96,7 +96,7 @@ docker exec year-view-calendar-app-1 npm test  # via OrbStack running container
 
 ## Usage
 
-1.  **Import Data:** Drag an `.ics` file (exported from Google Calendar, Apple Calendar, or Outlook) onto the "File Upload" drop zone, or paste a calendar URL.
+1.  **Import Data:** Drag an `.ics` file (exported from Google Calendar, Apple Calendar, or Outlook) onto the "File Upload" drop zone, or paste a calendar URL. If you want URL-based calendars to survive refresh, check the device-local “Remember this URL” option before importing.
 2.  **Navigate:** Use the arrow keys next to the year to switch years.
 3.  **Toggle View:** Click "Next 12 Months" to switch between a static year view and a rolling 12-month view anchored to the selected year.
 4.  **Manage Sources:** See loaded calendars in the side panel. Reload URL sources, remove individual sources, or clear all data.

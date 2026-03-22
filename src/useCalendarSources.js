@@ -1,7 +1,16 @@
 import { startTransition, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { fetchCalendarTextWithFallback, getCalendarName, isSupportedCalendarUrl, normalizeCalendarUrl, readFileAsText } from './calendar-import';
-import { calendarSourcesReducer, createInitialCalendarState, createSourceId, createSourceIdFromUrl } from './calendar-sources';
-import { clearCalendarUrls, loadCalendarUrls, saveCalendarUrls } from './calendar-storage';
+import {
+  calendarSourcesReducer,
+  createInitialCalendarState,
+  createSourceId,
+  createSourceIdFromUrl,
+} from './calendar-sources';
+import {
+  clearRememberedCalendarUrls,
+  loadRememberedCalendarUrls,
+  saveRememberedCalendarUrls,
+} from './calendar-storage';
 import ParseWorker from './calendar-parse-worker.js?worker';
 
 const parseInWorker = (content, sourceId) => {
@@ -28,6 +37,7 @@ const applyImportedContent = async (dispatch, content, {
   sourceName,
   sourceType,
   sourceUrl = null,
+  rememberOnDevice = false,
 }) => {
   const { events, calendarName } = await parseInWorker(content, sourceId);
   startTransition(() => {
@@ -39,6 +49,7 @@ const applyImportedContent = async (dispatch, content, {
           name: calendarName || sourceName,
           type: sourceType,
           url: sourceUrl,
+          rememberOnDevice,
         },
         events,
       },
@@ -47,25 +58,30 @@ const applyImportedContent = async (dispatch, content, {
 };
 
 const createInitialState = (baseDate) => {
-  const savedEntries = loadCalendarUrls();
-  if (savedEntries.length > 0) {
-    const sources = savedEntries.map((entry) => ({
+  const rememberedEntries = loadRememberedCalendarUrls();
+  if (rememberedEntries.length === 0) {
+    return createInitialCalendarState(baseDate);
+  }
+
+  return {
+    events: [],
+    sources: rememberedEntries.map((entry) => ({
       id: createSourceIdFromUrl(entry.url),
       name: entry.name || getCalendarName(entry.url),
       type: 'url',
       url: entry.url,
       status: 'loading',
       error: null,
-    }));
-    return { events: [], sources, importFeedback: null };
-  }
-  return createInitialCalendarState(baseDate);
+      rememberOnDevice: true,
+    })),
+    importFeedback: null,
+  };
 };
 
 export const useCalendarSources = (baseDate) => {
   const [state, dispatch] = useReducer(calendarSourcesReducer, baseDate, createInitialState);
   const [isImportingUrl, setIsImportingUrl] = useState(false);
-  const hasLoadedUrlsRef = useRef(false);
+  const hasLoadedRememberedSourcesRef = useRef(false);
 
   const setImportFeedback = (feedback) => {
     dispatch({
@@ -85,32 +101,33 @@ export const useCalendarSources = (baseDate) => {
     }
   }, [state.importFeedback, clearImportFeedback]);
 
-  // Save URL list whenever sources change
   useEffect(() => {
-    if (hasLoadedUrlsRef.current) {
-      saveCalendarUrls(state.sources);
+    if (hasLoadedRememberedSourcesRef.current) {
+      saveRememberedCalendarUrls(state.sources);
     }
   }, [state.sources]);
 
-  // Fetch saved URL sources on mount (sources already in state with loading status)
   useEffect(() => {
-    hasLoadedUrlsRef.current = true;
+    hasLoadedRememberedSourcesRef.current = true;
     let stale = false;
 
-    const urlSources = state.sources.filter((s) => s.type === 'url' && s.status === 'loading');
-    for (const source of urlSources) {
+    const rememberedSources = state.sources.filter((source) => source.type === 'url' && source.status === 'loading');
+    for (const source of rememberedSources) {
       fetchCalendarTextWithFallback(source.url)
         .then((content) => {
           if (stale) return;
+
           return applyImportedContent(dispatch, content, {
             sourceId: source.id,
             sourceName: source.name,
             sourceType: 'url',
             sourceUrl: source.url,
+            rememberOnDevice: true,
           });
         })
         .catch((error) => {
           if (stale) return;
+
           dispatch({
             type: 'SET_SOURCE_ERROR',
             payload: {
@@ -123,7 +140,7 @@ export const useCalendarSources = (baseDate) => {
 
     return () => {
       stale = true;
-      hasLoadedUrlsRef.current = false;
+      hasLoadedRememberedSourcesRef.current = false;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -164,7 +181,7 @@ export const useCalendarSources = (baseDate) => {
     clearImportFeedback();
   };
 
-  const importUrl = async (urlValue) => {
+  const importUrl = async (urlValue, { rememberOnDevice = false } = {}) => {
     const normalizedUrl = normalizeCalendarUrl(urlValue);
 
     if (!normalizedUrl || !isSupportedCalendarUrl(normalizedUrl)) {
@@ -189,10 +206,11 @@ export const useCalendarSources = (baseDate) => {
     try {
       const content = await fetchCalendarTextWithFallback(normalizedUrl);
       await applyImportedContent(dispatch, content, {
-        sourceId: createSourceIdFromUrl(normalizedUrl),
+        sourceId: rememberOnDevice ? createSourceIdFromUrl(normalizedUrl) : createSourceId(),
         sourceName: getCalendarName(normalizedUrl),
         sourceType: 'url',
         sourceUrl: normalizedUrl,
+        rememberOnDevice,
       });
       return true;
     } catch (error) {
@@ -223,6 +241,7 @@ export const useCalendarSources = (baseDate) => {
         sourceName: source.name,
         sourceType: 'url',
         sourceUrl: source.url,
+        rememberOnDevice: source.rememberOnDevice === true,
       });
     } catch (error) {
       dispatch({
@@ -248,7 +267,7 @@ export const useCalendarSources = (baseDate) => {
   };
 
   const clearAllSources = () => {
-    clearCalendarUrls();
+    clearRememberedCalendarUrls();
     dispatch({ type: 'CLEAR_ALL' });
   };
 
