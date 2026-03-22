@@ -88,6 +88,7 @@ const App = ({ initialDate = new Date() }) => {
             <p className="pr-6">
               This view only shows events lasting longer than <strong>24 hours</strong>.
               File imports stay in your browser. URL imports may pass through the configured proxy server before falling back to a direct browser request.
+              Remembered URLs are stored only if you explicitly opt in on this device.
             </p>
             <button
               type="button"
@@ -121,8 +122,6 @@ const App = ({ initialDate = new Date() }) => {
 
         <footer className="mt-12 text-center text-gray-400 text-sm no-print">
           <p>
-            File imports stay in your browser. URL imports may transit the proxy server when direct access is unavailable.
-            {' '}
             <a
               href="https://github.com/sweenzor/year-view-calendar"
               target="_blank"

@@ -10,6 +10,7 @@ export const ImportPanel = ({
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [urlInput, setUrlInput] = useState('');
+  const [rememberOnDevice, setRememberOnDevice] = useState(false);
 
   const handleDrag = (event) => {
     event.preventDefault();
@@ -39,7 +40,7 @@ export const ImportPanel = ({
 
   const handleUrlSubmit = async (event) => {
     event.preventDefault();
-    const succeeded = await onImportUrl(urlInput);
+    const succeeded = await onImportUrl(urlInput, { rememberOnDevice });
     if (succeeded) {
       setUrlInput('');
     }
@@ -79,7 +80,7 @@ export const ImportPanel = ({
             className="hidden"
             onChange={handleFileInput}
           />
-          <div className="flex-1 flex items-start">
+          <div className="flex items-start">
             <label
               htmlFor="ics-upload"
               className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium cursor-pointer transition-colors text-sm w-full md:w-auto text-center"
@@ -88,10 +89,8 @@ export const ImportPanel = ({
               Choose Files
             </label>
           </div>
-          <p className="text-xs text-gray-500 pt-3 text-center md:text-left">
+          <p className="mt-3 text-xs text-gray-500">
             or drag &amp; drop <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> files here
-            <br />
-            &nbsp;
           </p>
         </div>
 
@@ -129,6 +128,15 @@ export const ImportPanel = ({
               </button>
             </form>
           </div>
+          <label className="mt-3 inline-flex items-center gap-2 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={rememberOnDevice}
+              onChange={(event) => setRememberOnDevice(event.target.checked)}
+              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+            />
+            Remember this URL on this device
+          </label>
           <p className="text-xs text-gray-500 pt-3">
             Paste a public <code className="bg-gray-100 text-gray-700 px-1 py-0.5 rounded font-mono">.ics</code> link.{' '}
             For Google Calendar, use the secret address from{' '}
@@ -140,6 +148,7 @@ export const ImportPanel = ({
             >
               calendar settings
             </a>.
+            If you enable remembering, the full feed URL is stored in this browser so it can reload after refresh.
           </p>
         </div>
       </div>

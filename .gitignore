@@ -25,5 +25,9 @@ dist-ssr
 *.sw?
 
 # Firebase
+.firebaserc
 .firebase
 firebase-debug.log
+
+# Workspace tooling
+.idx/

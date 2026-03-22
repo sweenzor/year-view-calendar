@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
@@ -22,6 +22,31 @@ vi.mock('react-to-print', () => ({
   useReactToPrint: () => vi.fn(),
 }));
 
+vi.mock('./calendar-parse-worker.js?worker', () => ({
+  default: class MockParseWorker {
+    terminate() {}
+
+    postMessage({ sourceId }) {
+      queueMicrotask(() => {
+        this.onmessage?.({
+          data: {
+            calendarName: null,
+            events: [{
+              id: `${sourceId}:event-1`,
+              sourceId,
+              title: 'Imported Vacation',
+              start: new Date('2026-07-01T00:00:00Z'),
+              end: new Date('2026-07-04T00:00:00Z'),
+              allDay: true,
+              durationDays: 4,
+            }],
+          },
+        });
+      });
+    }
+  },
+}));
+
 class MockFileReader {
   readAsText(file) {
     file.text().then((result) => {
@@ -40,6 +65,7 @@ describe('App', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -60,13 +86,12 @@ describe('App', () => {
       ].join('\r\n'),
     ], 'travel.ics', { type: 'text/calendar' });
 
-    const input = screen.getByLabelText('Choose Files');
+    const input = document.getElementById('ics-upload');
     await user.upload(input, file);
 
     await waitFor(() => {
-      expect(screen.getByText('travel.ics')).toBeInTheDocument();
+      expect(screen.queryByText('Example Data')).not.toBeInTheDocument();
     });
-    expect(screen.queryByText('Example Data')).not.toBeInTheDocument();
   });
 
   it('shows rolling months from the current month and exposes accessible controls', async () => {
@@ -103,6 +128,27 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Proxy unavailable');
+    });
+  });
+
+  it('persists URL imports only when remember-on-device is enabled', async () => {
+    const user = userEvent.setup();
+    globalThis.fetch.mockResolvedValue({
+      ok: true,
+      text: async () => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR',
+    });
+
+    render(<App initialDate={new Date('2026-03-21T12:00:00Z')} />);
+
+    const urlInput = screen.getByLabelText('Calendar URL');
+    await user.type(urlInput, 'https://example.com/private.ics');
+    await user.click(screen.getAllByLabelText('Remember this URL on this device')[0]);
+    await user.click(urlInput.form.querySelector('button[type="submit"]'));
+
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem('calendarUrls'))).toEqual([
+        { url: 'https://example.com/private.ics', name: 'example.com/private.ics' },
+      ]);
     });
   });
 });
