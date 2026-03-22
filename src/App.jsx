@@ -122,9 +122,6 @@ const App = ({ initialDate = new Date() }) => {
 
         <footer className="mt-12 text-center text-gray-400 text-sm no-print">
           <p>
-            File imports stay in your browser. URL imports may transit the proxy server when direct access is unavailable.
-            Remembered URLs are stored only when you opt in.
-            {' '}
             <a
               href="https://github.com/sweenzor/year-view-calendar"
               target="_blank"
