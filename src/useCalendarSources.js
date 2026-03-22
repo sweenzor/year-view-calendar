@@ -1,6 +1,6 @@
 import { startTransition, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { fetchCalendarTextWithFallback, getCalendarName, isSupportedCalendarUrl, normalizeCalendarUrl, readFileAsText } from './calendar-import';
-import { calendarSourcesReducer, createInitialCalendarState, createSourceId } from './calendar-sources';
+import { calendarSourcesReducer, createInitialCalendarState, createSourceId, createSourceIdFromUrl } from './calendar-sources';
 import { clearCalendarUrls, loadCalendarUrls, saveCalendarUrls } from './calendar-storage';
 import ParseWorker from './calendar-parse-worker.js?worker';
 
@@ -50,7 +50,7 @@ const createInitialState = (baseDate) => {
   const savedEntries = loadCalendarUrls();
   if (savedEntries.length > 0) {
     const sources = savedEntries.map((entry) => ({
-      id: createSourceId(),
+      id: createSourceIdFromUrl(entry.url),
       name: entry.name || getCalendarName(entry.url),
       type: 'url',
       url: entry.url,
@@ -189,7 +189,7 @@ export const useCalendarSources = (baseDate) => {
     try {
       const content = await fetchCalendarTextWithFallback(normalizedUrl);
       await applyImportedContent(dispatch, content, {
-        sourceId: createSourceId(),
+        sourceId: createSourceIdFromUrl(normalizedUrl),
         sourceName: getCalendarName(normalizedUrl),
         sourceType: 'url',
         sourceUrl: normalizedUrl,

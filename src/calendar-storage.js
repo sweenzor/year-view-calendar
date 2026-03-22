@@ -37,3 +37,28 @@ export const clearCalendarUrls = () => {
     // Ignore errors when clearing
   }
 };
+
+const HIDDEN_EVENTS_KEY = 'hiddenEventIds';
+
+export const saveHiddenEventIds = (hiddenIds) => {
+  try {
+    if (hiddenIds.size > 0) {
+      localStorage.setItem(HIDDEN_EVENTS_KEY, JSON.stringify([...hiddenIds]));
+    } else {
+      localStorage.removeItem(HIDDEN_EVENTS_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+export const loadHiddenEventIds = () => {
+  try {
+    const json = localStorage.getItem(HIDDEN_EVENTS_KEY);
+    if (!json) return new Set();
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+};
