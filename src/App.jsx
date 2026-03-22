@@ -42,7 +42,7 @@ const App = ({ initialDate = new Date() }) => {
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
-    documentTitle: `Year-view Calendar - ${currentYear}`,
+    documentTitle: `Year-view Calendar ${currentYear}`,
     pageStyle: `
       @page {
         size: portrait;
