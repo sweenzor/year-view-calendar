@@ -157,16 +157,16 @@ export const buildMonthLayout = ({ year, month, events, colorMap }) => {
     colorMap,
   });
 
+  const today = new Date();
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+  const todayDate = today.getDate();
+
   const rows = segmentsByRow.map((segments, rowIndex) => {
     const { stackedSegments, laneCount } = stackSegments(segments);
     const containerHeightRem = Math.max(
       BASE_DAY_HEIGHT_REM + 0.5,
       BASE_DAY_HEIGHT_REM + (laneCount * (EVENT_HEIGHT_REM + STACK_GAP_REM)) + 0.5,
     );
-
-    const today = new Date();
-    const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
-    const todayDate = today.getDate();
 
     const days = Array.from({ length: 7 }, (_, columnIndex) => {
       const dayIndex = (rowIndex * 7) + columnIndex + 1 - firstDayOfMonth;

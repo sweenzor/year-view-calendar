@@ -33,13 +33,12 @@ const MonthGrid = memo(({ monthLayout, hiddenEventIds, onToggleEvent }) => {
                 className="text-center text-xs text-gray-500 z-0 flex items-center justify-center"
                 style={{
                   height: '1.5rem',
-                  lineHeight: '1.5rem',
                   gridColumnStart: index + 1,
                   gridRowStart: 1,
                 }}
               >
                 {day.isToday ? (
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border-2 border-blue-500">
+                  <span className="w-5 h-5 rounded-full border-2 border-blue-500 flex items-center justify-center">
                     {day.value}
                   </span>
                 ) : (
