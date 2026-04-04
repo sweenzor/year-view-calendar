@@ -157,6 +157,10 @@ export const buildMonthLayout = ({ year, month, events, colorMap }) => {
     colorMap,
   });
 
+  const today = new Date();
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+  const todayDate = today.getDate();
+
   const rows = segmentsByRow.map((segments, rowIndex) => {
     const { stackedSegments, laneCount } = stackSegments(segments);
     const containerHeightRem = Math.max(
@@ -166,9 +170,11 @@ export const buildMonthLayout = ({ year, month, events, colorMap }) => {
 
     const days = Array.from({ length: 7 }, (_, columnIndex) => {
       const dayIndex = (rowIndex * 7) + columnIndex + 1 - firstDayOfMonth;
+      const isValid = dayIndex > 0 && dayIndex <= daysInMonth;
       return {
         key: `day-${rowIndex}-${columnIndex + 1}`,
-        value: dayIndex > 0 && dayIndex <= daysInMonth ? dayIndex : '',
+        value: isValid ? dayIndex : '',
+        isToday: isValid && isCurrentMonth && dayIndex === todayDate,
       };
     });
 

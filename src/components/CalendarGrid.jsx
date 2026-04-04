@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react';
 import { assignEventColors } from '../calendar-utils';
 import { buildCalendarLayouts } from '../calendar-layout';
 
-const MonthGrid = memo(({ monthLayout, hiddenEventIds, onToggleEvent }) => {
+const MonthGrid = memo(({ monthLayout, hiddenEventIds, onToggleEvent, todayHidden, onToggleToday }) => {
   return (
     <div className="flex flex-col mb-4 break-inside-avoid bg-white rounded-sm print:mb-2">
       <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-100 print:mb-1 print:pb-0.5 print:border-gray-200">
@@ -30,15 +30,23 @@ const MonthGrid = memo(({ monthLayout, hiddenEventIds, onToggleEvent }) => {
             {row.days.map((day, index) => (
               <div
                 key={day.key}
-                className="text-center text-xs text-gray-500 z-0"
+                className="text-center text-xs text-gray-500 z-0 flex items-center justify-center"
                 style={{
                   height: '1.5rem',
-                  lineHeight: '1.5rem',
                   gridColumnStart: index + 1,
                   gridRowStart: 1,
                 }}
               >
-                {day.value}
+                {day.isToday ? (
+                  <span
+                    onClick={onToggleToday}
+                    className={`w-5 h-5 rounded-full border-2 border-blue-500 flex items-center justify-center cursor-pointer transition-opacity ${todayHidden ? 'opacity-30 print:hidden' : ''}`}
+                  >
+                    {day.value}
+                  </span>
+                ) : (
+                  day.value
+                )}
               </div>
             ))}
 
@@ -91,7 +99,7 @@ const MonthGrid = memo(({ monthLayout, hiddenEventIds, onToggleEvent }) => {
   );
 });
 
-export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingView, hiddenEventIds, onToggleEvent }) => {
+export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingView, hiddenEventIds, onToggleEvent, todayHidden, onToggleToday }) => {
   const colorMap = useMemo(() => assignEventColors(events), [events]);
   const monthLayouts = useMemo(
     () => buildCalendarLayouts({ displayedMonths, events, colorMap }),
@@ -109,6 +117,10 @@ export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingV
   );
 
   const rollingLabel = monthLayouts[0] ? `${monthLayouts[0].monthName} ${monthLayouts[0].year}` : '';
+  const todayMonthKey = useMemo(
+    () => monthLayouts.find((ml) => ml.rows.some((r) => r.days.some((d) => d.isToday)))?.key,
+    [monthLayouts],
+  );
 
   return (
     <div ref={componentRef} className="print-container">
@@ -123,14 +135,14 @@ export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingV
 
       <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100 items-start print-grid print:p-0 print:gap-4 print:shadow-none print:border-none ${printLayouts ? 'screen-only' : ''}`}>
         {monthLayouts.map((monthLayout) => (
-          <MonthGrid key={monthLayout.key} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} />
+          <MonthGrid key={monthLayout.key} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} todayHidden={monthLayout.key === todayMonthKey ? todayHidden : false} onToggleToday={monthLayout.key === todayMonthKey ? onToggleToday : undefined} />
         ))}
       </div>
 
       {printLayouts && (
         <div className="hidden print-only-grid print:p-0 print:gap-4 print:shadow-none print:border-none">
           {printLayouts.map((monthLayout) => (
-            <MonthGrid key={`print-${monthLayout.key}`} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} />
+            <MonthGrid key={`print-${monthLayout.key}`} monthLayout={monthLayout} hiddenEventIds={hiddenEventIds} onToggleEvent={onToggleEvent} todayHidden={monthLayout.key === todayMonthKey ? todayHidden : false} />
           ))}
         </div>
       )}

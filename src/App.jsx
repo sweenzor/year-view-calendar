@@ -15,6 +15,7 @@ const App = ({ initialDate = new Date() }) => {
   const [isRollingView, setIsRollingView] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
   const [hiddenEventIds, setHiddenEventIds] = useState(() => loadHiddenEventIds());
+  const [todayHidden, setTodayHidden] = useState(false);
   const {
     events,
     sources,
@@ -118,6 +119,8 @@ const App = ({ initialDate = new Date() }) => {
               return next;
             });
           }, [])}
+          todayHidden={todayHidden}
+          onToggleToday={useCallback(() => setTodayHidden((prev) => !prev), [])}
         />
 
         <footer className="mt-12 text-center text-gray-400 text-sm no-print">
