@@ -30,7 +30,7 @@ const MonthGrid = memo(({ monthLayout, hiddenEventIds, onToggleEvent }) => {
             {row.days.map((day, index) => (
               <div
                 key={day.key}
-                className="text-center text-xs text-gray-500 z-0"
+                className="text-center text-xs text-gray-500 z-0 flex items-center justify-center"
                 style={{
                   height: '1.5rem',
                   lineHeight: '1.5rem',
@@ -38,7 +38,13 @@ const MonthGrid = memo(({ monthLayout, hiddenEventIds, onToggleEvent }) => {
                   gridRowStart: 1,
                 }}
               >
-                {day.value}
+                {day.isToday ? (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border-2 border-blue-500 text-blue-600 font-semibold">
+                    {day.value}
+                  </span>
+                ) : (
+                  day.value
+                )}
               </div>
             ))}
 

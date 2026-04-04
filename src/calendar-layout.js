@@ -164,11 +164,17 @@ export const buildMonthLayout = ({ year, month, events, colorMap }) => {
       BASE_DAY_HEIGHT_REM + (laneCount * (EVENT_HEIGHT_REM + STACK_GAP_REM)) + 0.5,
     );
 
+    const today = new Date();
+    const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+    const todayDate = today.getDate();
+
     const days = Array.from({ length: 7 }, (_, columnIndex) => {
       const dayIndex = (rowIndex * 7) + columnIndex + 1 - firstDayOfMonth;
+      const isValid = dayIndex > 0 && dayIndex <= daysInMonth;
       return {
         key: `day-${rowIndex}-${columnIndex + 1}`,
-        value: dayIndex > 0 && dayIndex <= daysInMonth ? dayIndex : '',
+        value: isValid ? dayIndex : '',
+        isToday: isValid && isCurrentMonth && dayIndex === todayDate,
       };
     });
 
