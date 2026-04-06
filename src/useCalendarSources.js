@@ -41,18 +41,16 @@ const parseInWorker = (content, {
   });
 };
 
-const parseSourceContent = (content, { sourceId, rangeStartMs = null, rangeEndMs = null }) => {
-  return parseInWorker(content, { sourceId, rangeStartMs, rangeEndMs });
-};
-
 const applyImportedContent = async (dispatch, content, {
   sourceId,
   sourceName,
   sourceType,
   sourceUrl = null,
   rememberOnDevice = false,
-}, { rangeStartMs = null, rangeEndMs = null } = {}) => {
-  const { events, calendarName } = await parseSourceContent(content, {
+  rangeStartMs = null,
+  rangeEndMs = null,
+}) => {
+  const { events, calendarName } = await parseInWorker(content, {
     sourceId,
     rangeStartMs,
     rangeEndMs,
@@ -104,8 +102,6 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
   const rangeEndMs = displayedRange?.end?.getTime() ?? null;
   const initialRangeRef = useRef({ rangeStartMs, rangeEndMs });
   const initialRememberedSourcesRef = useRef(state.sources);
-  const sourceIdsKey = state.sources.map((s) => s.id).join(',');
-
   const setImportFeedback = (feedback) => {
     dispatch({
       type: 'SET_IMPORT_FEEDBACK',
@@ -140,7 +136,7 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
         }
 
         try {
-          const { events } = await parseSourceContent(content, {
+          const { events } = await parseInWorker(content, {
             sourceId,
             rangeStartMs,
             rangeEndMs,
@@ -169,7 +165,6 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
       stale = true;
     };
   }, [
-    sourceIdsKey,
     rangeStartMs,
     rangeEndMs,
   ]);
@@ -192,7 +187,8 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
             sourceType: 'url',
             sourceUrl: source.url,
             rememberOnDevice: true,
-          }, initialRangeRef.current).then(() => {
+            ...initialRangeRef.current,
+          }).then(() => {
             if (!stale) {
               sourceContentsRef.current.set(source.id, content);
             }
@@ -238,7 +234,9 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
           sourceId,
           sourceName: file.name,
           sourceType: 'file',
-        }, { rangeStartMs, rangeEndMs });
+          rangeStartMs,
+          rangeEndMs,
+        });
         sourceContentsRef.current.set(sourceId, content);
       } catch (error) {
         feedbackMessages.push(`Could not import ${file.name}: ${error.message}`);
@@ -287,7 +285,9 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
         sourceType: 'url',
         sourceUrl: normalizedUrl,
         rememberOnDevice,
-      }, { rangeStartMs, rangeEndMs });
+        rangeStartMs,
+        rangeEndMs,
+      });
       sourceContentsRef.current.set(sourceId, content);
       return true;
     } catch (error) {
@@ -319,7 +319,9 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
         sourceType: 'url',
         sourceUrl: source.url,
         rememberOnDevice: source.rememberOnDevice === true,
-      }, { rangeStartMs, rangeEndMs });
+        rangeStartMs,
+        rangeEndMs,
+      });
       sourceContentsRef.current.set(source.id, content);
     } catch (error) {
       dispatch({

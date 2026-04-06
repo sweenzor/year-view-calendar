@@ -102,6 +102,12 @@ export const updateSourceEvents = (state, { sourceId, events }) => {
     return state;
   }
 
+  const existing = state.events.filter((event) => event.sourceId === sourceId);
+  if (existing.length === events.length
+    && existing.every((event, i) => event.id === events[i].id)) {
+    return state;
+  }
+
   return {
     ...state,
     events: [
