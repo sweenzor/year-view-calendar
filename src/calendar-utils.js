@@ -134,7 +134,18 @@ const createMockEvent = ({ id, title, start, end }) => ({
   durationDays: calculateInclusiveDaySpan(start, end),
 });
 
-export const eventColorKey = (event) => `${event.start.getTime()}-${event.title || ''}`;
+export const eventColorKey = (event) => {
+  if (event.id) {
+    return event.id;
+  }
+
+  return [
+    event.sourceId || '',
+    event.start?.getTime?.() || '',
+    event.end?.getTime?.() || '',
+    event.title || '',
+  ].join(':');
+};
 
 export const normalizeCalendarData = (icsContent, { sourceId = 'unknown-source' } = {}) => {
   const trimmedContent = icsContent?.trim();
@@ -163,7 +174,18 @@ export const normalizeCalendarData = (icsContent, { sourceId = 'unknown-source' 
 
 export const assignEventColors = (events) => {
   const sortedEvents = [...events].sort(
-    (left, right) => left.start - right.start || (left.title || '').localeCompare(right.title || ''),
+    (left, right) => {
+      if (left.start - right.start) {
+        return left.start - right.start;
+      }
+
+      const titleComparison = (left.title || '').localeCompare(right.title || '');
+      if (titleComparison) {
+        return titleComparison;
+      }
+
+      return eventColorKey(left).localeCompare(eventColorKey(right));
+    },
   );
 
   const colorMap = new Map();

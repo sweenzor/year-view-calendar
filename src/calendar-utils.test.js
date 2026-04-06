@@ -172,4 +172,30 @@ describe('assignEventColors', () => {
     expect(appearance.backgroundColor).toMatch(/^hsl\(\d+(\.\d+)?, \d+%, \d+%\)$/);
     expect(['#ffffff', '#0f172a']).toContain(appearance.textColor);
   });
+
+  it('keeps distinct colors for separate events with the same title and start date', () => {
+    const events = [
+      {
+        id: 'source-a:event-1',
+        sourceId: 'source-a',
+        title: 'Vacation',
+        start: new Date(2026, 6, 1),
+        end: new Date(2026, 6, 4),
+      },
+      {
+        id: 'source-b:event-1',
+        sourceId: 'source-b',
+        title: 'Vacation',
+        start: new Date(2026, 6, 1),
+        end: new Date(2026, 6, 10),
+      },
+    ];
+
+    const colorMap = assignEventColors(events);
+
+    expect(colorMap.size).toBe(2);
+    expect(colorMap.get(eventColorKey(events[0]))?.backgroundColor).not.toBe(
+      colorMap.get(eventColorKey(events[1]))?.backgroundColor,
+    );
+  });
 });
