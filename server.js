@@ -1,27 +1,28 @@
 import express from 'express';
-import cors from 'cors';
 import axios from 'axios';
+import { MAX_PROXY_RESPONSE_BYTES } from './proxy-shared.js';
 import {
   createSafeLookup,
-  isRedirectStatus,
-  MAX_PROXY_REDIRECTS,
-  MAX_PROXY_RESPONSE_BYTES,
   PROXY_TIMEOUT_MS,
-  resolveRedirectUrl,
   validateProxyUrl,
 } from './proxy-utils.js';
+import {
+  PROXY_SECURITY_HEADERS,
+  PROXY_USER_AGENT,
+  followValidatedRedirects,
+  validateCalendarBody,
+} from './functions/proxy-core.js';
 
 const app = express();
 const port = 3001;
 
 // Security headers
 app.use((_req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  Object.entries(PROXY_SECURITY_HEADERS).forEach(([header, value]) => {
+    res.setHeader(header, value);
+  });
   next();
 });
-
-app.use(cors());
 
 // In-memory rate limiter — no external dependencies to keep the server lightweight.
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -53,55 +54,6 @@ function isRateLimited(ip) {
 
 const safeLookup = createSafeLookup();
 
-const fetchRemoteCalendar = async (initialUrl) => {
-  let currentUrl = initialUrl;
-
-  for (let redirectCount = 0; redirectCount <= MAX_PROXY_REDIRECTS; redirectCount += 1) {
-    const response = await axios.get(currentUrl, {
-      responseType: 'text',
-      timeout: PROXY_TIMEOUT_MS,
-      maxContentLength: MAX_PROXY_RESPONSE_BYTES,
-      maxBodyLength: MAX_PROXY_RESPONSE_BYTES,
-      maxRedirects: 0,
-      validateStatus: () => true,
-      lookup: safeLookup,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; YearViewCalendar/1.0)',
-      },
-    });
-
-    if (!isRedirectStatus(response.status)) {
-      return response;
-    }
-
-    if (redirectCount === MAX_PROXY_REDIRECTS) {
-      const tooManyRedirectsError = new Error('The remote calendar redirected too many times.');
-      tooManyRedirectsError.status = 502;
-      throw tooManyRedirectsError;
-    }
-
-    const redirectTarget = response.headers.location;
-    if (!redirectTarget) {
-      const invalidRedirectError = new Error('The remote calendar returned a redirect without a location.');
-      invalidRedirectError.status = 502;
-      throw invalidRedirectError;
-    }
-
-    const redirectValidation = await resolveRedirectUrl(currentUrl, redirectTarget);
-    if (!redirectValidation.ok) {
-      const redirectError = new Error(redirectValidation.message);
-      redirectError.status = redirectValidation.status;
-      throw redirectError;
-    }
-
-    currentUrl = redirectValidation.url.toString();
-  }
-
-  const unexpectedRedirectError = new Error('The remote calendar redirected too many times.');
-  unexpectedRedirectError.status = 502;
-  throw unexpectedRedirectError;
-};
-
 app.get('/proxy', async (req, res) => {
   const clientIp = req.ip || req.socket.remoteAddress;
   if (isRateLimited(clientIp)) {
@@ -119,13 +71,31 @@ app.get('/proxy', async (req, res) => {
   }
 
   try {
-    const response = await fetchRemoteCalendar(validation.url.toString());
+    const { response } = await followValidatedRedirects(validation.url.toString(), {
+      validateUrl: validateProxyUrl,
+      sendRequest: async (url) => {
+        const response = await axios.get(url, {
+          responseType: 'text',
+          timeout: PROXY_TIMEOUT_MS,
+          maxContentLength: MAX_PROXY_RESPONSE_BYTES,
+          maxBodyLength: MAX_PROXY_RESPONSE_BYTES,
+          maxRedirects: 0,
+          validateStatus: () => true,
+          lookup: safeLookup,
+          headers: {
+            'User-Agent': PROXY_USER_AGENT,
+          },
+        });
 
-    if (response.status >= 400) {
-      return res.status(response.status).send(`The remote calendar responded with status ${response.status}.`);
-    }
+        return {
+          status: response.status,
+          redirectLocation: response.headers.location,
+          response,
+        };
+      },
+    });
 
-    res.type('text/calendar').send(response.data);
+    res.type('text/calendar').send(validateCalendarBody(response.data));
   } catch (error) {
     if (error.status) {
       return res.status(error.status).send(error.message);
