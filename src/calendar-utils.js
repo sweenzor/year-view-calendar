@@ -4,6 +4,7 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const UNTITLED_EVENT = 'Untitled Event';
 const GOLDEN_ANGLE = 137.508;
 const MAX_RECURRING_OCCURRENCES = 500;
+const MAX_RECURRENCE_ITERATIONS = 10000;
 const DEFAULT_EVENT_APPEARANCE = {
   backgroundColor: 'hsl(210, 60%, 50%)',
   textColor: '#ffffff',
@@ -105,10 +106,11 @@ const expandCalendarEvent = (event, index, { sourceId, rangeStart = null, rangeE
 
   const iterator = event.iterator();
   const expandedEvents = [];
-  let occurrenceCount = 0;
+  let matchCount = 0;
+  let iterationCount = 0;
 
-  while (occurrenceCount < MAX_RECURRING_OCCURRENCES) {
-    occurrenceCount += 1;
+  while (matchCount < MAX_RECURRING_OCCURRENCES && iterationCount < MAX_RECURRENCE_ITERATIONS) {
+    iterationCount += 1;
     const nextOccurrence = iterator.next();
     if (!nextOccurrence) {
       break;
@@ -125,6 +127,7 @@ const expandCalendarEvent = (event, index, { sourceId, rangeStart = null, rangeE
       continue;
     }
 
+    matchCount += 1;
     const normalizedEvent = normalizeCalendarEvent(event, index, sourceId, {
       startTime: occurrenceDetails.startDate,
       endTime: occurrenceDetails.endDate,
