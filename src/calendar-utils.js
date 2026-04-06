@@ -3,6 +3,7 @@ import ICAL from 'ical.js';
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const UNTITLED_EVENT = 'Untitled Event';
 const GOLDEN_ANGLE = 137.508;
+const MAX_RECURRING_OCCURRENCES = 500;
 const DEFAULT_EVENT_APPEARANCE = {
   backgroundColor: 'hsl(210, 60%, 50%)',
   textColor: '#ffffff',
@@ -19,22 +20,44 @@ const calculateInclusiveDaySpan = (start, end) => {
   return Math.floor(diff / MILLISECONDS_PER_DAY) + 1;
 };
 
-const buildEventId = (component, index, sourceId) => {
-  const uid = component.getFirstPropertyValue('uid');
-  const recurrenceId = component.getFirstPropertyValue('recurrence-id');
+const buildEventId = (event, index, sourceId, occurrenceId = null) => {
+  const uid = event.uid;
   if (uid) {
-    return recurrenceId
-      ? `${sourceId}:${uid}:${recurrenceId.toString()}`
+    return occurrenceId
+      ? `${sourceId}:${uid}:${occurrenceId.toString()}`
       : `${sourceId}:${uid}`;
   }
 
-  return `${sourceId}:event-${index}`;
+  return occurrenceId
+    ? `${sourceId}:event-${index}:${occurrenceId.toString()}`
+    : `${sourceId}:event-${index}`;
 };
 
-const normalizeCalendarEvent = (component, index, sourceId) => {
-  const event = new ICAL.Event(component);
-  const startTime = event.startDate;
-  const endTime = event.endDate;
+const doesOccurrenceOverlapRange = (startTime, endTime, { rangeStart = null, rangeEnd = null } = {}) => {
+  const rawStart = startTime.toJSDate();
+  const rawEnd = endTime.toJSDate();
+
+  if (rangeStart && rawEnd <= rangeStart) {
+    return false;
+  }
+
+  if (rangeEnd && rawStart >= rangeEnd) {
+    return false;
+  }
+
+  return true;
+};
+
+const normalizeCalendarEvent = (
+  event,
+  index,
+  sourceId,
+  {
+    startTime = event.startDate,
+    endTime = event.endDate,
+    occurrenceId = null,
+  } = {},
+) => {
 
   if (!startTime || !endTime) {
     return null;
@@ -57,10 +80,10 @@ const normalizeCalendarEvent = (component, index, sourceId) => {
     return null;
   }
 
-  const title = component.getFirstPropertyValue('summary')?.toString().trim() || UNTITLED_EVENT;
+  const title = event.summary?.toString().trim() || UNTITLED_EVENT;
 
   return {
-    id: buildEventId(component, index, sourceId),
+    id: buildEventId(event, index, sourceId, occurrenceId),
     sourceId,
     title,
     start,
@@ -68,6 +91,74 @@ const normalizeCalendarEvent = (component, index, sourceId) => {
     allDay,
     durationDays: calculateInclusiveDaySpan(start, end),
   };
+};
+
+const expandCalendarEvent = (event, index, { sourceId, rangeStart = null, rangeEnd = null } = {}) => {
+  if (!event.isRecurring()) {
+    if (!doesOccurrenceOverlapRange(event.startDate, event.endDate, { rangeStart, rangeEnd })) {
+      return [];
+    }
+
+    const normalizedEvent = normalizeCalendarEvent(event, index, sourceId);
+    return normalizedEvent ? [normalizedEvent] : [];
+  }
+
+  const iterator = event.iterator();
+  const expandedEvents = [];
+  let occurrenceCount = 0;
+
+  while (occurrenceCount < MAX_RECURRING_OCCURRENCES) {
+    occurrenceCount += 1;
+    const nextOccurrence = iterator.next();
+    if (!nextOccurrence) {
+      break;
+    }
+
+    const occurrenceDetails = event.getOccurrenceDetails(nextOccurrence);
+    if (rangeEnd
+      && occurrenceDetails.startDate.toJSDate() >= rangeEnd
+      && nextOccurrence.toJSDate() >= rangeEnd) {
+      break;
+    }
+
+    if (!doesOccurrenceOverlapRange(occurrenceDetails.startDate, occurrenceDetails.endDate, { rangeStart, rangeEnd })) {
+      continue;
+    }
+
+    const normalizedEvent = normalizeCalendarEvent(event, index, sourceId, {
+      startTime: occurrenceDetails.startDate,
+      endTime: occurrenceDetails.endDate,
+      occurrenceId: occurrenceDetails.recurrenceId,
+    });
+
+    if (normalizedEvent) {
+      expandedEvents.push({
+        ...normalizedEvent,
+        title: occurrenceDetails.item.summary?.toString().trim() || normalizedEvent.title,
+      });
+    }
+  }
+
+  return expandedEvents;
+};
+
+const getPrimaryCalendarEvents = (calendarComponent) => {
+  const calendarEvents = calendarComponent
+    .getAllSubcomponents('vevent')
+    .map((component) => new ICAL.Event(component));
+  const recurringEventsByUid = new Map(
+    calendarEvents
+      .filter((event) => event.isRecurring() && !event.isRecurrenceException() && event.uid)
+      .map((event) => [event.uid, event]),
+  );
+
+  calendarEvents
+    .filter((event) => event.isRecurrenceException() && event.uid)
+    .forEach((event) => {
+      recurringEventsByUid.get(event.uid)?.relateException(event);
+    });
+
+  return calendarEvents.filter((event) => !event.isRecurrenceException());
 };
 
 const srgbToLinear = (channel) => {
@@ -147,7 +238,14 @@ export const eventColorKey = (event) => {
   ].join(':');
 };
 
-export const normalizeCalendarData = (icsContent, { sourceId = 'unknown-source' } = {}) => {
+export const normalizeCalendarData = (
+  icsContent,
+  {
+    sourceId = 'unknown-source',
+    rangeStart = null,
+    rangeEnd = null,
+  } = {},
+) => {
   const trimmedContent = icsContent?.trim();
   if (!trimmedContent) {
     return { events: [], calendarName: null };
@@ -164,9 +262,12 @@ export const normalizeCalendarData = (icsContent, { sourceId = 'unknown-source' 
     || calendarComponent.getFirstPropertyValue('name')
     || null;
 
-  const events = calendarComponent
-    .getAllSubcomponents('vevent')
-    .map((component, index) => normalizeCalendarEvent(component, index, sourceId))
+  const events = getPrimaryCalendarEvents(calendarComponent)
+    .flatMap((event, index) => expandCalendarEvent(event, index, {
+      sourceId,
+      rangeStart,
+      rangeEnd,
+    }))
     .filter(Boolean);
 
   return { events, calendarName };

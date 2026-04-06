@@ -13,7 +13,11 @@ import {
 } from './calendar-storage';
 import ParseWorker from './calendar-parse-worker.js?worker';
 
-const parseInWorker = (content, sourceId) => {
+const parseInWorker = (content, {
+  sourceId,
+  rangeStartMs = null,
+  rangeEndMs = null,
+}) => {
   return new Promise((resolve, reject) => {
     const worker = new ParseWorker();
     worker.onmessage = (event) => {
@@ -28,8 +32,17 @@ const parseInWorker = (content, sourceId) => {
       worker.terminate();
       reject(new Error(error.message || 'Calendar parsing failed.'));
     };
-    worker.postMessage({ content, sourceId });
+    worker.postMessage({
+      content,
+      sourceId,
+      rangeStartMs,
+      rangeEndMs,
+    });
   });
+};
+
+const parseSourceContent = (content, { sourceId, rangeStartMs = null, rangeEndMs = null }) => {
+  return parseInWorker(content, { sourceId, rangeStartMs, rangeEndMs });
 };
 
 const applyImportedContent = async (dispatch, content, {
@@ -38,8 +51,12 @@ const applyImportedContent = async (dispatch, content, {
   sourceType,
   sourceUrl = null,
   rememberOnDevice = false,
-}) => {
-  const { events, calendarName } = await parseInWorker(content, sourceId);
+}, { rangeStartMs = null, rangeEndMs = null } = {}) => {
+  const { events, calendarName } = await parseSourceContent(content, {
+    sourceId,
+    rangeStartMs,
+    rangeEndMs,
+  });
   startTransition(() => {
     dispatch({
       type: 'APPLY_IMPORTED_SOURCE',
@@ -78,10 +95,15 @@ const createInitialState = (baseDate) => {
   };
 };
 
-export const useCalendarSources = (baseDate) => {
+export const useCalendarSources = ({ baseDate, displayedRange }) => {
   const [state, dispatch] = useReducer(calendarSourcesReducer, baseDate, createInitialState);
   const [isImportingUrl, setIsImportingUrl] = useState(false);
   const hasLoadedRememberedSourcesRef = useRef(false);
+  const sourceContentsRef = useRef(new Map());
+  const rangeStartMs = displayedRange?.start?.getTime() ?? null;
+  const rangeEndMs = displayedRange?.end?.getTime() ?? null;
+  const initialRangeRef = useRef({ rangeStartMs, rangeEndMs });
+  const initialRememberedSourcesRef = useRef(state.sources);
 
   const setImportFeedback = (feedback) => {
     dispatch({
@@ -108,10 +130,57 @@ export const useCalendarSources = (baseDate) => {
   }, [state.sources]);
 
   useEffect(() => {
+    let stale = false;
+    const syncLoadedSources = async () => {
+      const loadedSources = state.sources.filter((source) => sourceContentsRef.current.has(source.id));
+      await Promise.all(loadedSources.map(async (source) => {
+        const content = sourceContentsRef.current.get(source.id);
+        if (!content) {
+          return;
+        }
+
+        try {
+          const { events } = await parseSourceContent(content, {
+            sourceId: source.id,
+            rangeStartMs,
+            rangeEndMs,
+          });
+          if (stale) {
+            return;
+          }
+
+          startTransition(() => {
+            dispatch({
+              type: 'UPDATE_SOURCE_EVENTS',
+              payload: { sourceId: source.id, events },
+            });
+          });
+        } catch {
+          if (stale) {
+            return;
+          }
+        }
+      }));
+    };
+
+    syncLoadedSources();
+
+    return () => {
+      stale = true;
+    };
+  }, [
+    state.sources,
+    rangeStartMs,
+    rangeEndMs,
+  ]);
+
+  useEffect(() => {
     hasLoadedRememberedSourcesRef.current = true;
     let stale = false;
 
-    const rememberedSources = state.sources.filter((source) => source.type === 'url' && source.status === 'loading');
+    const rememberedSources = initialRememberedSourcesRef.current.filter(
+      (source) => source.type === 'url' && source.status === 'loading',
+    );
     for (const source of rememberedSources) {
       fetchCalendarTextWithFallback(source.url)
         .then((content) => {
@@ -123,6 +192,10 @@ export const useCalendarSources = (baseDate) => {
             sourceType: 'url',
             sourceUrl: source.url,
             rememberOnDevice: true,
+          }, initialRangeRef.current).then(() => {
+            if (!stale) {
+              sourceContentsRef.current.set(source.id, content);
+            }
           });
         })
         .catch((error) => {
@@ -142,7 +215,7 @@ export const useCalendarSources = (baseDate) => {
       stale = true;
       hasLoadedRememberedSourcesRef.current = false;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const importFiles = async (fileList) => {
     const files = Array.from(fileList || []);
@@ -160,11 +233,13 @@ export const useCalendarSources = (baseDate) => {
 
       try {
         const content = await readFileAsText(file);
+        const sourceId = createSourceId();
         await applyImportedContent(dispatch, content, {
-          sourceId: createSourceId(),
+          sourceId,
           sourceName: file.name,
           sourceType: 'file',
-        });
+        }, { rangeStartMs, rangeEndMs });
+        sourceContentsRef.current.set(sourceId, content);
       } catch (error) {
         feedbackMessages.push(`Could not import ${file.name}: ${error.message}`);
       }
@@ -205,13 +280,15 @@ export const useCalendarSources = (baseDate) => {
 
     try {
       const content = await fetchCalendarTextWithFallback(normalizedUrl);
+      const sourceId = rememberOnDevice ? createSourceIdFromUrl(normalizedUrl) : createSourceId();
       await applyImportedContent(dispatch, content, {
-        sourceId: rememberOnDevice ? createSourceIdFromUrl(normalizedUrl) : createSourceId(),
+        sourceId,
         sourceName: getCalendarName(normalizedUrl),
         sourceType: 'url',
         sourceUrl: normalizedUrl,
         rememberOnDevice,
-      });
+      }, { rangeStartMs, rangeEndMs });
+      sourceContentsRef.current.set(sourceId, content);
       return true;
     } catch (error) {
       setImportFeedback({
@@ -242,7 +319,8 @@ export const useCalendarSources = (baseDate) => {
         sourceType: 'url',
         sourceUrl: source.url,
         rememberOnDevice: source.rememberOnDevice === true,
-      });
+      }, { rangeStartMs, rangeEndMs });
+      sourceContentsRef.current.set(source.id, content);
     } catch (error) {
       dispatch({
         type: 'SET_SOURCE_ERROR',
@@ -260,6 +338,7 @@ export const useCalendarSources = (baseDate) => {
   };
 
   const removeSource = (sourceId) => {
+    sourceContentsRef.current.delete(sourceId);
     dispatch({
       type: 'REMOVE_SOURCE',
       payload: { sourceId },
@@ -267,6 +346,7 @@ export const useCalendarSources = (baseDate) => {
   };
 
   const clearAllSources = () => {
+    sourceContentsRef.current.clear();
     clearRememberedCalendarUrls();
     dispatch({ type: 'CLEAR_ALL' });
   };

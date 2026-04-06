@@ -69,6 +69,82 @@ describe('normalizeCalendarData', () => {
     expect(normalizeCalendarData(calendar, { sourceId: 'source-c' }).events).toEqual([]);
   });
 
+  it('expands recurring all-day events inside the requested display range', () => {
+    const calendar = wrapCalendar([
+      makeEvent([
+        'UID:recurring-1',
+        'SUMMARY:Quarterly Retreat',
+        'DTSTART;VALUE=DATE:20260101',
+        'DTEND;VALUE=DATE:20260104',
+        'RRULE:FREQ=MONTHLY;COUNT=3',
+      ]),
+    ]);
+
+    const { events } = normalizeCalendarData(calendar, {
+      sourceId: 'source-recurring',
+      rangeStart: new Date(2026, 0, 1),
+      rangeEnd: new Date(2026, 3, 1),
+    });
+
+    expect(events).toHaveLength(3);
+    expect(events.map((event) => event.id)).toEqual([
+      'source-recurring:recurring-1:2026-01-01',
+      'source-recurring:recurring-1:2026-02-01',
+      'source-recurring:recurring-1:2026-03-01',
+    ]);
+    expect(events.map((event) => event.start)).toEqual([
+      new Date(2026, 0, 1),
+      new Date(2026, 1, 1),
+      new Date(2026, 2, 1),
+    ]);
+  });
+
+  it('applies recurrence overrides when an exception changes an occurrence', () => {
+    const calendar = wrapCalendar([
+      makeEvent([
+        'UID:recurring-2',
+        'SUMMARY:Retreat',
+        'DTSTART;VALUE=DATE:20260101',
+        'DTEND;VALUE=DATE:20260104',
+        'RRULE:FREQ=MONTHLY;COUNT=2',
+      ]),
+      makeEvent([
+        'UID:recurring-2',
+        'RECURRENCE-ID;VALUE=DATE:20260201',
+        'SUMMARY:Moved Retreat',
+        'DTSTART;VALUE=DATE:20260205',
+        'DTEND;VALUE=DATE:20260208',
+      ]),
+    ]);
+
+    const { events } = normalizeCalendarData(calendar, {
+      sourceId: 'source-exception',
+      rangeStart: new Date(2026, 0, 1),
+      rangeEnd: new Date(2026, 2, 15),
+    });
+
+    expect(events).toHaveLength(2);
+    expect(events.map((event) => ({
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+    }))).toEqual([
+      {
+        id: 'source-exception:recurring-2:2026-01-01',
+        title: 'Retreat',
+        start: new Date(2026, 0, 1),
+        end: new Date(2026, 0, 3),
+      },
+      {
+        id: 'source-exception:recurring-2:2026-02-01',
+        title: 'Moved Retreat',
+        start: new Date(2026, 1, 5),
+        end: new Date(2026, 1, 7),
+      },
+    ]);
+  });
+
   it('supports folded lines and parameterized properties', () => {
     const calendar = wrapCalendar([
       makeEvent([
