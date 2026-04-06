@@ -10,7 +10,7 @@ import {
   PROXY_SECURITY_HEADERS,
   PROXY_USER_AGENT,
   followValidatedRedirects,
-  validateCalendarBody,
+  readCalendarAxiosResponse,
 } from './functions/proxy-core.js';
 
 const app = express();
@@ -101,7 +101,7 @@ app.get('/proxy', async (req, res) => {
 
     // Size limiting is handled by axios maxContentLength/maxBodyLength above.
     // The Workers path uses streaming size checks in readCalendarFetchResponse.
-    res.type('text/calendar').send(validateCalendarBody(response.data));
+    res.type('text/calendar').send(readCalendarAxiosResponse(response));
   } catch (error) {
     if (error.status) {
       return res.status(error.status).send(error.message);

@@ -96,11 +96,19 @@ export const readResponseWithSizeLimit = async (response) => {
   return chunks.join('');
 };
 
-export const readCalendarFetchResponse = async (response) => {
-  if (response.status >= 400) {
-    throw createProxyError(response.status, `The remote calendar responded with status ${response.status}.`);
+const rejectErrorStatus = (status) => {
+  if (status >= 400) {
+    throw createProxyError(status, `The remote calendar responded with status ${status}.`);
   }
+};
 
+export const readCalendarFetchResponse = async (response) => {
+  rejectErrorStatus(response.status);
   const body = await readResponseWithSizeLimit(response);
   return validateCalendarBody(body);
+};
+
+export const readCalendarAxiosResponse = (response) => {
+  rejectErrorStatus(response.status);
+  return validateCalendarBody(response.data);
 };

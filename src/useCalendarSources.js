@@ -41,20 +41,19 @@ const parseInWorker = (content, {
   });
 };
 
-const applyImportedContent = async (dispatch, content, {
+const rangesMatch = (left, right) => {
+  return left.rangeStartMs === right.rangeStartMs
+    && left.rangeEndMs === right.rangeEndMs;
+};
+
+const applyImportedContent = async (dispatch, parseSourceContent, content, {
   sourceId,
   sourceName,
   sourceType,
   sourceUrl = null,
   rememberOnDevice = false,
-  rangeStartMs = null,
-  rangeEndMs = null,
 }) => {
-  const { events, calendarName } = await parseInWorker(content, {
-    sourceId,
-    rangeStartMs,
-    rangeEndMs,
-  });
+  const { events, calendarName } = await parseSourceContent(content, sourceId);
   startTransition(() => {
     dispatch({
       type: 'APPLY_IMPORTED_SOURCE',
@@ -100,14 +99,35 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
   const sourceContentsRef = useRef(new Map());
   const rangeStartMs = displayedRange?.start?.getTime() ?? null;
   const rangeEndMs = displayedRange?.end?.getTime() ?? null;
-  const initialRangeRef = useRef({ rangeStartMs, rangeEndMs });
   const initialRememberedSourcesRef = useRef(state.sources);
+  const latestRangeRef = useRef({ rangeStartMs, rangeEndMs });
+  if (!rangesMatch(latestRangeRef.current, { rangeStartMs, rangeEndMs })) {
+    latestRangeRef.current = { rangeStartMs, rangeEndMs };
+  }
   const setImportFeedback = (feedback) => {
     dispatch({
       type: 'SET_IMPORT_FEEDBACK',
       payload: feedback,
     });
   };
+
+  const parseSourceContent = useCallback(async (content, sourceId) => {
+    const maxRetries = 3;
+    let requestedRange = { ...latestRangeRef.current };
+
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      const parsed = await parseInWorker(content, {
+        sourceId,
+        ...requestedRange,
+      });
+      const currentRange = latestRangeRef.current;
+      if (rangesMatch(requestedRange, currentRange) || attempt === maxRetries) {
+        return parsed;
+      }
+
+      requestedRange = { ...currentRange };
+    }
+  }, []);
 
   const clearImportFeedback = useCallback(() => {
     dispatch({ type: 'CLEAR_IMPORT_FEEDBACK' });
@@ -136,11 +156,7 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
         }
 
         try {
-          const { events } = await parseInWorker(content, {
-            sourceId,
-            rangeStartMs,
-            rangeEndMs,
-          });
+          const { events } = await parseSourceContent(content, sourceId);
           if (stale) {
             return;
           }
@@ -165,6 +181,7 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
       stale = true;
     };
   }, [
+    parseSourceContent,
     rangeStartMs,
     rangeEndMs,
   ]);
@@ -181,22 +198,19 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
         .then((content) => {
           if (stale) return;
 
-          return applyImportedContent(dispatch, content, {
+          sourceContentsRef.current.set(source.id, content);
+          return applyImportedContent(dispatch, parseSourceContent, content, {
             sourceId: source.id,
             sourceName: source.name,
             sourceType: 'url',
             sourceUrl: source.url,
             rememberOnDevice: true,
-            ...initialRangeRef.current,
-          }).then(() => {
-            if (!stale) {
-              sourceContentsRef.current.set(source.id, content);
-            }
           });
         })
         .catch((error) => {
           if (stale) return;
 
+          sourceContentsRef.current.delete(source.id);
           dispatch({
             type: 'SET_SOURCE_ERROR',
             payload: {
@@ -211,7 +225,7 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
       stale = true;
       hasLoadedRememberedSourcesRef.current = false;
     };
-  }, []);
+  }, [parseSourceContent]);
 
   const importFiles = async (fileList) => {
     const files = Array.from(fileList || []);
@@ -227,18 +241,17 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
         continue;
       }
 
+      const sourceId = createSourceId();
       try {
         const content = await readFileAsText(file);
-        const sourceId = createSourceId();
-        await applyImportedContent(dispatch, content, {
+        sourceContentsRef.current.set(sourceId, content);
+        await applyImportedContent(dispatch, parseSourceContent, content, {
           sourceId,
           sourceName: file.name,
           sourceType: 'file',
-          rangeStartMs,
-          rangeEndMs,
         });
-        sourceContentsRef.current.set(sourceId, content);
       } catch (error) {
+        sourceContentsRef.current.delete(sourceId);
         feedbackMessages.push(`Could not import ${file.name}: ${error.message}`);
       }
     }
@@ -276,21 +289,20 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
     setIsImportingUrl(true);
     clearImportFeedback();
 
+    const sourceId = rememberOnDevice ? createSourceIdFromUrl(normalizedUrl) : createSourceId();
     try {
       const content = await fetchCalendarTextWithFallback(normalizedUrl);
-      const sourceId = rememberOnDevice ? createSourceIdFromUrl(normalizedUrl) : createSourceId();
-      await applyImportedContent(dispatch, content, {
+      sourceContentsRef.current.set(sourceId, content);
+      await applyImportedContent(dispatch, parseSourceContent, content, {
         sourceId,
         sourceName: getCalendarName(normalizedUrl),
         sourceType: 'url',
         sourceUrl: normalizedUrl,
         rememberOnDevice,
-        rangeStartMs,
-        rangeEndMs,
       });
-      sourceContentsRef.current.set(sourceId, content);
       return true;
     } catch (error) {
+      sourceContentsRef.current.delete(sourceId);
       setImportFeedback({
         type: 'error',
         message: error.message || 'Could not import that calendar URL.',
@@ -313,17 +325,16 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
 
     try {
       const content = await fetchCalendarTextWithFallback(source.url);
-      await applyImportedContent(dispatch, content, {
+      sourceContentsRef.current.set(source.id, content);
+      await applyImportedContent(dispatch, parseSourceContent, content, {
         sourceId: source.id,
         sourceName: source.name,
         sourceType: 'url',
         sourceUrl: source.url,
         rememberOnDevice: source.rememberOnDevice === true,
-        rangeStartMs,
-        rangeEndMs,
       });
-      sourceContentsRef.current.set(source.id, content);
     } catch (error) {
+      sourceContentsRef.current.delete(source.id);
       dispatch({
         type: 'SET_SOURCE_ERROR',
         payload: {

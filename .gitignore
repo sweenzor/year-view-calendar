@@ -31,3 +31,4 @@ firebase-debug.log
 
 # Workspace tooling
 .idx/
+.claude/settings.local.json
