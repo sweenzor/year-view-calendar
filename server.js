@@ -16,6 +16,10 @@ import {
 const app = express();
 const port = 3001;
 
+// No CORS middleware needed — the Vite dev server proxies /proxy
+// requests to this server (see vite.config.js), so the browser
+// never makes cross-origin requests to port 3001 directly.
+
 // Security headers
 app.use((_req, res, next) => {
   Object.entries(PROXY_SECURITY_HEADERS).forEach(([header, value]) => {
@@ -95,6 +99,8 @@ app.get('/proxy', async (req, res) => {
       },
     });
 
+    // Size limiting is handled by axios maxContentLength/maxBodyLength above.
+    // The Workers path uses streaming size checks in readCalendarFetchResponse.
     res.type('text/calendar').send(validateCalendarBody(response.data));
   } catch (error) {
     if (error.status) {
