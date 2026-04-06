@@ -104,6 +104,7 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
   const rangeEndMs = displayedRange?.end?.getTime() ?? null;
   const initialRangeRef = useRef({ rangeStartMs, rangeEndMs });
   const initialRememberedSourcesRef = useRef(state.sources);
+  const sourceIdsKey = state.sources.map((s) => s.id).join(',');
 
   const setImportFeedback = (feedback) => {
     dispatch({
@@ -132,16 +133,15 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
   useEffect(() => {
     let stale = false;
     const syncLoadedSources = async () => {
-      const loadedSources = state.sources.filter((source) => sourceContentsRef.current.has(source.id));
-      await Promise.all(loadedSources.map(async (source) => {
-        const content = sourceContentsRef.current.get(source.id);
+      const entries = Array.from(sourceContentsRef.current.entries());
+      await Promise.all(entries.map(async ([sourceId, content]) => {
         if (!content) {
           return;
         }
 
         try {
           const { events } = await parseSourceContent(content, {
-            sourceId: source.id,
+            sourceId,
             rangeStartMs,
             rangeEndMs,
           });
@@ -152,7 +152,7 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
           startTransition(() => {
             dispatch({
               type: 'UPDATE_SOURCE_EVENTS',
-              payload: { sourceId: source.id, events },
+              payload: { sourceId, events },
             });
           });
         } catch {
@@ -169,7 +169,7 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
       stale = true;
     };
   }, [
-    state.sources,
+    sourceIdsKey,
     rangeStartMs,
     rangeEndMs,
   ]);
