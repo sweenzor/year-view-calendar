@@ -97,6 +97,26 @@ export const setSourceError = (state, { sourceId, error }) => {
   };
 };
 
+export const updateSourceEvents = (state, { sourceId, events }) => {
+  if (!state.sources.some((source) => source.id === sourceId)) {
+    return state;
+  }
+
+  const existing = state.events.filter((event) => event.sourceId === sourceId);
+  if (existing.length === events.length
+    && existing.every((event, i) => event.id === events[i].id)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    events: [
+      ...state.events.filter((event) => event.sourceId !== sourceId),
+      ...events,
+    ],
+  };
+};
+
 export const removeSourceFromState = (state, sourceId) => {
   return {
     ...state,
@@ -122,6 +142,8 @@ export const calendarSourcesReducer = (state, action) => {
       return setSourceLoading(state, action.payload.sourceId);
     case 'SET_SOURCE_ERROR':
       return setSourceError(state, action.payload);
+    case 'UPDATE_SOURCE_EVENTS':
+      return updateSourceEvents(state, action.payload);
     case 'REMOVE_SOURCE':
       return removeSourceFromState(state, action.payload.sourceId);
     case 'CLEAR_ALL':

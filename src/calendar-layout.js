@@ -149,6 +149,22 @@ export const getDisplayedMonths = ({ selectedYear, isRollingView, baseDate = new
   });
 };
 
+export const getDisplayedRange = (displayedMonths) => {
+  if (!displayedMonths.length) {
+    return { start: null, end: null };
+  }
+
+  const firstMonth = displayedMonths[0];
+  const lastMonth = displayedMonths[displayedMonths.length - 1];
+  const start = new Date(firstMonth.year, firstMonth.month, 1);
+  const end = new Date(lastMonth.year, lastMonth.month + 1, 1);
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
+  return { start, end };
+};
+
 export const buildMonthLayout = ({ year, month, events, colorMap }) => {
   const { daysInMonth, firstDayOfMonth, segmentsByRow } = buildMonthSegments({
     year,

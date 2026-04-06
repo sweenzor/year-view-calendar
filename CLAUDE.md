@@ -16,12 +16,12 @@ npm test          # Vitest suite
 npm run preview   # Serve production build locally
 ```
 
-Docker alternative: `docker-compose up` exposes the same ports.
+Docker alternative: `docker compose up` exposes the same ports.
 
-When running via Docker, use `docker-compose exec app <command>` to run commands:
+When running via Docker, use `docker compose exec app <command>` to run commands:
 ```bash
-docker-compose exec app npm run lint
-docker-compose exec app npm test
+docker compose exec app npm run lint
+docker compose exec app npm test
 ```
 
 ## Tech Stack
@@ -67,8 +67,8 @@ The app is split into small feature modules instead of a single monolith:
 ## Testing
 
 ```bash
-docker-compose exec app npm test                               # run all tests
-docker-compose exec app npm test -- src/calendar-utils.test.js # run a specific file
+docker compose exec app npm test                               # run all tests
+docker compose exec app npm test -- src/calendar-utils.test.js # run a specific file
 ```
 
 Tests cover: parser normalization, rolling-range/layout helpers, source-state transitions, proxy guard helpers, and App-level import/accessibility behavior.
@@ -78,5 +78,4 @@ Tests cover: parser normalization, rolling-range/layout helpers, source-state tr
 - No TypeScript — plain JSX with React 19
 - Event colors use inline `backgroundColor`/`color` styles from computed appearance objects
 - Print view: CSS in `src/index.css` scales root to 62.5%, forces 3-col grid, event text forced to black
-- `src/App.css` is legacy/unused
-- Local workspace config such as `.idx/` and `.firebaserc` should remain untracked
+- Local workspace config such as `.idx/` should remain untracked

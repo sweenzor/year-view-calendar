@@ -1,7 +1,7 @@
 import { Info, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReactToPrint } from 'react-to-print';
-import { getDisplayedMonths } from './calendar-layout';
+import { getDisplayedMonths, getDisplayedRange } from './calendar-layout';
 import { loadHiddenEventIds, saveHiddenEventIds } from './calendar-storage';
 import { CalendarGrid } from './components/CalendarGrid';
 import { CalendarToolbar } from './components/CalendarToolbar';
@@ -16,6 +16,15 @@ const App = ({ initialDate = new Date() }) => {
   const [showInfo, setShowInfo] = useState(true);
   const [hiddenEventIds, setHiddenEventIds] = useState(() => loadHiddenEventIds());
   const [todayHidden, setTodayHidden] = useState(false);
+  const displayedMonths = useMemo(() => getDisplayedMonths({
+    selectedYear: currentYear,
+    isRollingView,
+    baseDate,
+  }), [baseDate, currentYear, isRollingView]);
+  const displayedRange = useMemo(
+    () => getDisplayedRange(displayedMonths),
+    [displayedMonths],
+  );
   const {
     events,
     sources,
@@ -28,18 +37,27 @@ const App = ({ initialDate = new Date() }) => {
     removeSource,
     clearAllSources,
     clearImportFeedback,
-  } = useCalendarSources(baseDate);
+  } = useCalendarSources({ baseDate, displayedRange });
 
   useEffect(() => {
     saveHiddenEventIds(hiddenEventIds);
   }, [hiddenEventIds]);
 
   const componentRef = useRef(null);
-  const displayedMonths = useMemo(() => getDisplayedMonths({
-    selectedYear: currentYear,
-    isRollingView,
-    baseDate,
-  }), [baseDate, currentYear, isRollingView]);
+  const handleToggleEvent = useCallback((eventId) => {
+    setHiddenEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) {
+        next.delete(eventId);
+      } else {
+        next.add(eventId);
+      }
+      return next;
+    });
+  }, []);
+  const handleToggleToday = useCallback(() => {
+    setTodayHidden((prev) => !prev);
+  }, []);
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
@@ -108,19 +126,9 @@ const App = ({ initialDate = new Date() }) => {
           events={events}
           isRollingView={isRollingView}
           hiddenEventIds={hiddenEventIds}
-          onToggleEvent={useCallback((eventId) => {
-            setHiddenEventIds((prev) => {
-              const next = new Set(prev);
-              if (next.has(eventId)) {
-                next.delete(eventId);
-              } else {
-                next.add(eventId);
-              }
-              return next;
-            });
-          }, [])}
+          onToggleEvent={handleToggleEvent}
           todayHidden={todayHidden}
-          onToggleToday={useCallback(() => setTodayHidden((prev) => !prev), [])}
+          onToggleToday={handleToggleToday}
         />
 
         <footer className="mt-12 text-center text-gray-400 text-sm no-print">

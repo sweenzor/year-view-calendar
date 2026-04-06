@@ -3,28 +3,22 @@
 // lookup so hostnames that resolve to private addresses are rejected before fetch().
 
 import {
-  MAX_PROXY_REDIRECTS,
-  MAX_PROXY_RESPONSE_BYTES,
-  NON_CALENDAR_MESSAGE,
   PRIVATE_NETWORK_MESSAGE,
   PROXY_TIMEOUT_MS,
   getIpVersion,
   isPrivateIpAddress,
-  looksLikeCalendarData,
-  parseRedirectTarget,
   validateProxyUrlShape,
 } from '../proxy-shared.js';
+import {
+  PROXY_SECURITY_HEADERS,
+  PROXY_USER_AGENT,
+  followValidatedRedirects,
+  readCalendarFetchResponse,
+} from './proxy-core.js';
 
-const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
 const DNS_QUERY_BASE_URL = 'https://cloudflare-dns.com/dns-query';
 const DNS_QUERY_TIMEOUT_MS = 5_000;
 const CROSS_ORIGIN_BROWSER_MESSAGE = 'Cross-origin browser requests are not allowed.';
-
-const SECURITY_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'SAMEORIGIN',
-  'Cross-Origin-Resource-Policy': 'same-origin',
-};
 
 // --- Helpers ---
 
@@ -86,15 +80,6 @@ const validateUrl = async (urlString) => {
   };
 };
 
-const resolveRedirectUrl = async (currentUrl, location) => {
-  const redirectTarget = parseRedirectTarget(currentUrl, location);
-  if (!redirectTarget.ok) {
-    return redirectTarget;
-  }
-
-  return validateUrl(redirectTarget.url.toString());
-};
-
 const validateBrowserRequest = (request, requestUrl) => {
   const origin = request.headers.get('Origin');
   if (origin && origin !== requestUrl.origin) {
@@ -108,79 +93,8 @@ const validateBrowserRequest = (request, requestUrl) => {
   return { ok: true };
 };
 
-// --- Core fetch ---
-
-const fetchRemoteCalendar = async (initialUrl) => {
-  let currentUrl = initialUrl;
-
-  for (let i = 0; i <= MAX_PROXY_REDIRECTS; i++) {
-    const response = await fetch(currentUrl, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; YearViewCalendar/1.0)' },
-    });
-
-    if (!REDIRECT_STATUS_CODES.has(response.status)) {
-      return response;
-    }
-
-    if (i === MAX_PROXY_REDIRECTS) {
-      break;
-    }
-
-    const redirectTarget = response.headers.get('location');
-    if (!redirectTarget) {
-      const err = new Error('The remote calendar returned a redirect without a location.');
-      err.status = 502;
-      throw err;
-    }
-
-    const validation = await resolveRedirectUrl(currentUrl, redirectTarget);
-    if (!validation.ok) {
-      const err = new Error(validation.message);
-      err.status = validation.status;
-      throw err;
-    }
-
-    currentUrl = validation.url.toString();
-  }
-
-  const err = new Error('The remote calendar redirected too many times.');
-  err.status = 502;
-  throw err;
-};
-
-const readResponseWithSizeLimit = async (response) => {
-  if (!response.body) {
-    return '';
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const chunks = [];
-  let totalBytes = 0;
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    totalBytes += value.byteLength;
-    if (totalBytes > MAX_PROXY_RESPONSE_BYTES) {
-      reader.cancel();
-      const err = new Error('The remote calendar is too large to import.');
-      err.status = 413;
-      throw err;
-    }
-
-    chunks.push(decoder.decode(value, { stream: true }));
-  }
-
-  chunks.push(decoder.decode());
-  return chunks.join('');
-};
-
 const errorResponse = (status, message) => {
-  return new Response(message, { status, headers: { ...SECURITY_HEADERS } });
+  return new Response(message, { status, headers: { ...PROXY_SECURITY_HEADERS } });
 };
 
 // --- Handler ---
@@ -204,22 +118,30 @@ export async function onRequestGet(context) {
   }
 
   try {
-    const response = await fetchRemoteCalendar(validation.url.toString());
+    const { response } = await followValidatedRedirects(validation.url.toString(), {
+      validateUrl,
+      sendRequest: async (url) => {
+        const response = await fetch(url, {
+          redirect: 'manual',
+          signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+          headers: { 'User-Agent': PROXY_USER_AGENT },
+        });
 
-    if (response.status >= 400) {
-      return errorResponse(response.status, `The remote calendar responded with status ${response.status}.`);
-    }
+        return {
+          status: response.status,
+          redirectLocation: response.headers.get('location'),
+          response,
+        };
+      },
+    });
 
-    const body = await readResponseWithSizeLimit(response);
-    if (!looksLikeCalendarData(body)) {
-      return errorResponse(415, NON_CALENDAR_MESSAGE);
-    }
+    const body = await readCalendarFetchResponse(response);
 
     return new Response(body, {
       status: 200,
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
-        ...SECURITY_HEADERS,
+        ...PROXY_SECURITY_HEADERS,
       },
     });
   } catch (error) {

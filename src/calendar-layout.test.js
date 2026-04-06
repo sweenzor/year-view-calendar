@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMonthLayout, getDisplayedMonths } from './calendar-layout';
+import { buildMonthLayout, getDisplayedMonths, getDisplayedRange } from './calendar-layout';
 import { eventColorKey } from './calendar-utils';
 
 const createColorMap = (events) => {
@@ -30,6 +30,19 @@ describe('getDisplayedMonths', () => {
 
     expect(months[0]).toEqual({ key: '2027-0', year: 2027, month: 0 });
     expect(months[11]).toEqual({ key: '2027-11', year: 2027, month: 11 });
+  });
+
+  it('returns an exclusive end date for the displayed range', () => {
+    const months = getDisplayedMonths({
+      selectedYear: 2026,
+      isRollingView: true,
+      baseDate: new Date(2026, 2, 21),
+    });
+
+    expect(getDisplayedRange(months)).toEqual({
+      start: new Date(2026, 2, 1),
+      end: new Date(2027, 2, 1),
+    });
   });
 });
 
