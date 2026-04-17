@@ -67,12 +67,16 @@ const normalizeCalendarEvent = (
   const rawStart = startTime.toJSDate();
   const rawEnd = endTime.toJSDate();
   const durationMs = rawEnd.getTime() - rawStart.getTime();
+  const allDay = startTime.isDate;
 
-  if (!(durationMs > MILLISECONDS_PER_DAY)) {
+  const meetsDurationThreshold = allDay
+    ? durationMs >= MILLISECONDS_PER_DAY
+    : durationMs > MILLISECONDS_PER_DAY;
+
+  if (!meetsDurationThreshold) {
     return null;
   }
 
-  const allDay = startTime.isDate;
   const start = toLocalDayStart(rawStart);
   const inclusiveEnd = new Date(rawEnd.getTime() - (allDay ? MILLISECONDS_PER_DAY : 1));
   const end = toLocalDayStart(inclusiveEnd);

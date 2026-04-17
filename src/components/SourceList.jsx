@@ -1,4 +1,4 @@
-import { FileText, Link, RefreshCw, Trash2, X } from 'lucide-react';
+import { CalendarDays, FileText, Link, RefreshCw, Trash2, X } from 'lucide-react';
 import { SOURCE_STATUS } from '../calendar-sources';
 
 const GOLDEN_ANGLE = 137.508;
@@ -24,6 +24,7 @@ export const SourceList = ({
   onReloadAllSources,
   onRemoveSource,
   onClearAllSources,
+  onToggleSingleDayEvents,
 }) => {
   const hasUrlSources = sources.some((source) => source.url);
   const hasLoadingSources = sources.some((source) => source.status === SOURCE_STATUS.LOADING);
@@ -40,7 +41,10 @@ export const SourceList = ({
           <p className="text-sm text-gray-500 italic text-center py-4">No calendars loaded</p>
         )}
 
-        {sources.map((source, index) => (
+        {sources.map((source, index) => {
+          const singleDayVerb = source.showSingleDayEvents ? 'Hide' : 'Show';
+
+          return (
           <div
             key={source.id}
             className="rounded-lg border p-2"
@@ -52,6 +56,22 @@ export const SourceList = ({
                 <span className="text-sm text-gray-800 truncate" title={source.name}>{source.name}</span>
               </div>
               <div className="flex items-center gap-1">
+                {source.type !== 'mock' && onToggleSingleDayEvents && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleSingleDayEvents(source.id)}
+                    aria-pressed={source.showSingleDayEvents === true}
+                    aria-label={`${singleDayVerb} single-day events for ${source.name}`}
+                    title={`${singleDayVerb} single-day all-day events`}
+                    className={`p-1 rounded-md transition-colors ${
+                      source.showSingleDayEvents
+                        ? 'text-purple-600 hover:text-purple-700'
+                        : 'text-gray-400 hover:text-purple-600'
+                    }`}
+                  >
+                    <CalendarDays size={14} />
+                  </button>
+                )}
                 {source.url && (
                   <button
                     type="button"
@@ -80,7 +100,8 @@ export const SourceList = ({
               </p>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {sources.length > 0 && (
