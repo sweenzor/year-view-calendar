@@ -41,7 +41,10 @@ export const SourceList = ({
           <p className="text-sm text-gray-500 italic text-center py-4">No calendars loaded</p>
         )}
 
-        {sources.map((source, index) => (
+        {sources.map((source, index) => {
+          const singleDayVerb = source.showSingleDayEvents ? 'Hide' : 'Show';
+
+          return (
           <div
             key={source.id}
             className="rounded-lg border p-2"
@@ -58,16 +61,8 @@ export const SourceList = ({
                     type="button"
                     onClick={() => onToggleSingleDayEvents(source.id)}
                     aria-pressed={source.showSingleDayEvents === true}
-                    aria-label={
-                      source.showSingleDayEvents
-                        ? `Hide single-day events for ${source.name}`
-                        : `Show single-day events for ${source.name}`
-                    }
-                    title={
-                      source.showSingleDayEvents
-                        ? 'Hide single-day all-day events'
-                        : 'Show single-day all-day events'
-                    }
+                    aria-label={`${singleDayVerb} single-day events for ${source.name}`}
+                    title={`${singleDayVerb} single-day all-day events`}
                     className={`p-1 rounded-md transition-colors ${
                       source.showSingleDayEvents
                         ? 'text-purple-600 hover:text-purple-700'
@@ -105,7 +100,8 @@ export const SourceList = ({
               </p>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {sources.length > 0 && (
