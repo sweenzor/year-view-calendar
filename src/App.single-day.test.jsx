@@ -71,7 +71,7 @@ describe('Single-day all-day events toggle', () => {
     vi.unstubAllGlobals();
   });
 
-  it('hides single-day all-day events by default and shows them when the source toggle is on', async () => {
+  it('shows single-day all-day events by default and hides them when the source toggle is off', async () => {
     const user = userEvent.setup();
     render(<App initialDate={new Date('2026-03-21T12:00:00Z')} />);
 
@@ -80,27 +80,29 @@ describe('Single-day all-day events toggle', () => {
     await waitFor(() => {
       expect(screen.getAllByLabelText(/Vacation Week/).length).toBeGreaterThan(0);
     });
-    expect(screen.queryAllByLabelText(/Birthday/).length).toBe(0);
-
-    const toggleButton = await screen.findByRole('button', {
-      name: /Show single-day events for sample\.ics/i,
-    });
-    expect(toggleButton).toHaveAttribute('aria-pressed', 'false');
-
-    await user.click(toggleButton);
-
     await waitFor(() => {
       expect(screen.getAllByLabelText(/Birthday/).length).toBeGreaterThan(0);
     });
 
-    const pressedToggle = screen.getByRole('button', {
+    const toggleButton = await screen.findByRole('button', {
       name: /Hide single-day events for sample\.ics/i,
     });
-    expect(pressedToggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'true');
 
-    await user.click(pressedToggle);
+    await user.click(toggleButton);
+
     await waitFor(() => {
       expect(screen.queryAllByLabelText(/Birthday/).length).toBe(0);
+    });
+
+    const unpressedToggle = screen.getByRole('button', {
+      name: /Show single-day events for sample\.ics/i,
+    });
+    expect(unpressedToggle).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(unpressedToggle);
+    await waitFor(() => {
+      expect(screen.getAllByLabelText(/Birthday/).length).toBeGreaterThan(0);
     });
   });
 
@@ -114,16 +116,16 @@ describe('Single-day all-day events toggle', () => {
     const sourceList = sourceListHeading.closest('div');
 
     await waitFor(() => {
-      expect(within(sourceList).getByText(/^1 events$/)).toBeInTheDocument();
+      expect(within(sourceList).getByText(/^2 events$/)).toBeInTheDocument();
     });
 
     const toggleButton = screen.getByRole('button', {
-      name: /Show single-day events for sample\.ics/i,
+      name: /Hide single-day events for sample\.ics/i,
     });
     await user.click(toggleButton);
 
     await waitFor(() => {
-      expect(within(sourceList).getByText(/^2 events$/)).toBeInTheDocument();
+      expect(within(sourceList).getByText(/^1 events$/)).toBeInTheDocument();
     });
   });
 });

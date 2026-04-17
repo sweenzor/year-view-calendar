@@ -87,7 +87,7 @@ const createInitialState = (baseDate) => {
       status: 'loading',
       error: null,
       rememberOnDevice: true,
-      showSingleDayEvents: entry.showSingleDayEvents === true,
+      showSingleDayEvents: entry.showSingleDayEvents !== false,
     })),
     importFeedback: null,
   };

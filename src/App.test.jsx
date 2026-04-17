@@ -147,7 +147,7 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(JSON.parse(localStorage.getItem('calendarUrls'))).toEqual([
-        { url: 'https://example.com/private.ics', name: 'example.com/private.ics', showSingleDayEvents: false },
+        { url: 'https://example.com/private.ics', name: 'example.com/private.ics', showSingleDayEvents: true },
       ]);
     });
   });

@@ -24,7 +24,7 @@ describe('calendar-storage', () => {
     ]);
 
     expect(loadRememberedCalendarUrls()).toEqual([
-      { url: 'https://example.com/work.ics', name: 'Work', showSingleDayEvents: false },
+      { url: 'https://example.com/work.ics', name: 'Work', showSingleDayEvents: true },
     ]);
   });
 
@@ -36,12 +36,12 @@ describe('calendar-storage', () => {
         type: 'url',
         url: 'https://example.com/work.ics',
         rememberOnDevice: true,
-        showSingleDayEvents: true,
+        showSingleDayEvents: false,
       },
     ]);
 
     expect(loadRememberedCalendarUrls()).toEqual([
-      { url: 'https://example.com/work.ics', name: 'Work', showSingleDayEvents: true },
+      { url: 'https://example.com/work.ics', name: 'Work', showSingleDayEvents: false },
     ]);
   });
 

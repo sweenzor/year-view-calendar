@@ -2,8 +2,8 @@ services:
   app:
     build: .
     ports:
-      - "5173:5173"
-      - "3001:3001"
+      - "5273:5173"
+      - "3101:3001"
     volumes:
       # Mount source for hot reloading
       - ./src:/app/src

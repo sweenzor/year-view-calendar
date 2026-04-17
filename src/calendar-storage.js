@@ -7,7 +7,7 @@ export const saveRememberedCalendarUrls = (sources) => {
       .map((source) => ({
         url: source.url,
         name: source.name,
-        showSingleDayEvents: source.showSingleDayEvents === true,
+        showSingleDayEvents: source.showSingleDayEvents !== false,
       }));
 
     if (entries.length > 0) {

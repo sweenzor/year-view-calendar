@@ -104,13 +104,27 @@ const App = ({ initialDate = new Date() }) => {
         </div>
 
         {showInfo && (
-          <div className="relative flex items-start gap-2 mb-6 text-sm text-gray-700 bg-blue-50 p-4 rounded-lg border border-blue-100 no-print">
+          <div className="relative flex items-start gap-3 mb-6 text-sm text-gray-700 bg-blue-50 p-4 pr-10 rounded-lg border border-blue-100 no-print">
             <Info size={18} className="text-blue-500 mt-0.5 shrink-0" />
-            <p className="pr-6">
-              This view shows events lasting longer than <strong>24 hours</strong> by default. Use the calendar icon next to each loaded source to also display its single-day all-day events.
-              File imports stay in your browser. URL imports may pass through the configured proxy server before falling back to a direct browser request.
-              Remembered URLs are stored only if you explicitly opt in on this device.
-            </p>
+            <div className="space-y-2">
+              <p className="font-semibold text-gray-800">About this view</p>
+              <ul className="list-disc pl-5 space-y-1 marker:text-blue-400">
+                <li>
+                  Shows all-day events by default. Multi-day events span their full range; single-day all-day events appear too.
+                  <ul className="list-[circle] pl-5 mt-1 space-y-1 marker:text-blue-300">
+                    <li>Use the calendar icon next to a source to hide its single-day all-day events.</li>
+                  </ul>
+                </li>
+                <li>
+                  Imports:
+                  <ul className="list-[circle] pl-5 mt-1 space-y-1 marker:text-blue-300">
+                    <li>File imports stay in your browser.</li>
+                    <li>URL imports try the configured proxy first, then fall back to a direct browser request.</li>
+                  </ul>
+                </li>
+                <li>Remembered URLs are stored only if you explicitly opt in on this device.</li>
+              </ul>
+            </div>
             <button
               type="button"
               onClick={() => setShowInfo(false)}

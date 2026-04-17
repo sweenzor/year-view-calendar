@@ -39,7 +39,7 @@ describe('calendar source state', () => {
       id: 'source-1',
       name: 'Trips',
       type: 'file',
-      showSingleDayEvents: false,
+      showSingleDayEvents: true,
       status: SOURCE_STATUS.READY,
       error: null,
     }]);
@@ -54,13 +54,13 @@ describe('calendar source state', () => {
     });
 
     const toggled = toggleSourceSingleDayEvents(imported, 'source-1');
-    expect(toggled.sources[0].showSingleDayEvents).toBe(true);
+    expect(toggled.sources[0].showSingleDayEvents).toBe(false);
 
     const reloaded = applyImportedSource(toggled, {
       source: { id: 'source-1', name: 'Trips', type: 'file' },
       events: [],
     });
-    expect(reloaded.sources[0].showSingleDayEvents).toBe(true);
+    expect(reloaded.sources[0].showSingleDayEvents).toBe(false);
   });
 
   it('toggles single-day events via the reducer', () => {
@@ -70,17 +70,17 @@ describe('calendar source state', () => {
       events: [],
     });
 
-    const on = calendarSourcesReducer(imported, {
-      type: 'TOGGLE_SINGLE_DAY_EVENTS',
-      payload: { sourceId: 'source-1' },
-    });
-    expect(on.sources[0].showSingleDayEvents).toBe(true);
-
-    const off = calendarSourcesReducer(on, {
+    const off = calendarSourcesReducer(imported, {
       type: 'TOGGLE_SINGLE_DAY_EVENTS',
       payload: { sourceId: 'source-1' },
     });
     expect(off.sources[0].showSingleDayEvents).toBe(false);
+
+    const on = calendarSourcesReducer(off, {
+      type: 'TOGGLE_SINGLE_DAY_EVENTS',
+      payload: { sourceId: 'source-1' },
+    });
+    expect(on.sources[0].showSingleDayEvents).toBe(true);
   });
 
   it('replaces an existing source on refresh', () => {

@@ -63,7 +63,7 @@ export const applyImportedSource = (state, { source, events }) => {
     ...source,
     showSingleDayEvents: source.showSingleDayEvents
       ?? existingSource?.showSingleDayEvents
-      ?? false,
+      ?? true,
     status: SOURCE_STATUS.READY,
     error: null,
   };
