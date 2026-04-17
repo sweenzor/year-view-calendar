@@ -107,7 +107,7 @@ const App = ({ initialDate = new Date() }) => {
           <div className="relative flex items-start gap-3 mb-6 text-sm text-gray-700 bg-blue-50 p-4 pr-10 rounded-lg border border-blue-100 no-print">
             <Info size={18} className="text-blue-500 mt-0.5 shrink-0" />
             <div className="space-y-2">
-              <p className="font-semibold text-gray-800">About this view</p>
+              <p className="font-semibold text-gray-800">About this app</p>
               <ul className="list-disc pl-5 space-y-1 marker:text-blue-400">
                 <li>
                   Shows all-day events by default. Multi-day events span their full range; single-day all-day events appear too.
