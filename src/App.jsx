@@ -37,6 +37,7 @@ const App = ({ initialDate = new Date() }) => {
     removeSource,
     clearAllSources,
     clearImportFeedback,
+    toggleSingleDayEvents,
   } = useCalendarSources({ baseDate, displayedRange });
 
   useEffect(() => {
@@ -98,6 +99,7 @@ const App = ({ initialDate = new Date() }) => {
             onReloadAllSources={reloadAllSources}
             onRemoveSource={removeSource}
             onClearAllSources={clearAllSources}
+            onToggleSingleDayEvents={toggleSingleDayEvents}
           />
         </div>
 
@@ -105,7 +107,7 @@ const App = ({ initialDate = new Date() }) => {
           <div className="relative flex items-start gap-2 mb-6 text-sm text-gray-700 bg-blue-50 p-4 rounded-lg border border-blue-100 no-print">
             <Info size={18} className="text-blue-500 mt-0.5 shrink-0" />
             <p className="pr-6">
-              This view only shows events lasting longer than <strong>24 hours</strong>.
+              This view shows events lasting longer than <strong>24 hours</strong> by default. Use the calendar icon next to each loaded source to also display its single-day all-day events.
               File imports stay in your browser. URL imports may pass through the configured proxy server before falling back to a direct browser request.
               Remembered URLs are stored only if you explicitly opt in on this device.
             </p>

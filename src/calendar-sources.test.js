@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   SOURCE_STATUS,
   applyImportedSource,
+  calendarSourcesReducer,
   clearAllSourcesFromState,
   createInitialCalendarState,
   removeSourceFromState,
   setSourceError,
   setSourceLoading,
+  toggleSourceSingleDayEvents,
 } from './calendar-sources';
 
 describe('calendar source state', () => {
@@ -37,10 +39,48 @@ describe('calendar source state', () => {
       id: 'source-1',
       name: 'Trips',
       type: 'file',
+      showSingleDayEvents: false,
       status: SOURCE_STATUS.READY,
       error: null,
     }]);
     expect(nextState.events).toEqual(events);
+  });
+
+  it('preserves a source single-day toggle across reloads', () => {
+    const baseState = createInitialCalendarState(new Date(2026, 2, 21));
+    const imported = applyImportedSource(baseState, {
+      source: { id: 'source-1', name: 'Trips', type: 'file' },
+      events: [],
+    });
+
+    const toggled = toggleSourceSingleDayEvents(imported, 'source-1');
+    expect(toggled.sources[0].showSingleDayEvents).toBe(true);
+
+    const reloaded = applyImportedSource(toggled, {
+      source: { id: 'source-1', name: 'Trips', type: 'file' },
+      events: [],
+    });
+    expect(reloaded.sources[0].showSingleDayEvents).toBe(true);
+  });
+
+  it('toggles single-day events via the reducer', () => {
+    const baseState = createInitialCalendarState(new Date(2026, 2, 21));
+    const imported = applyImportedSource(baseState, {
+      source: { id: 'source-1', name: 'Trips', type: 'file' },
+      events: [],
+    });
+
+    const on = calendarSourcesReducer(imported, {
+      type: 'TOGGLE_SINGLE_DAY_EVENTS',
+      payload: { sourceId: 'source-1' },
+    });
+    expect(on.sources[0].showSingleDayEvents).toBe(true);
+
+    const off = calendarSourcesReducer(on, {
+      type: 'TOGGLE_SINGLE_DAY_EVENTS',
+      payload: { sourceId: 'source-1' },
+    });
+    expect(off.sources[0].showSingleDayEvents).toBe(false);
   });
 
   it('replaces an existing source on refresh', () => {

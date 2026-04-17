@@ -24,7 +24,24 @@ describe('calendar-storage', () => {
     ]);
 
     expect(loadRememberedCalendarUrls()).toEqual([
-      { url: 'https://example.com/work.ics', name: 'Work' },
+      { url: 'https://example.com/work.ics', name: 'Work', showSingleDayEvents: false },
+    ]);
+  });
+
+  it('persists single-day toggle for remembered URL sources', () => {
+    saveRememberedCalendarUrls([
+      {
+        id: 'source-1',
+        name: 'Work',
+        type: 'url',
+        url: 'https://example.com/work.ics',
+        rememberOnDevice: true,
+        showSingleDayEvents: true,
+      },
+    ]);
+
+    expect(loadRememberedCalendarUrls()).toEqual([
+      { url: 'https://example.com/work.ics', name: 'Work', showSingleDayEvents: true },
     ]);
   });
 

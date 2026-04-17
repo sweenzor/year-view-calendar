@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { fetchCalendarTextWithFallback, getCalendarName, isSupportedCalendarUrl, normalizeCalendarUrl, readFileAsText } from './calendar-import';
 import {
   calendarSourcesReducer,
@@ -87,6 +87,7 @@ const createInitialState = (baseDate) => {
       status: 'loading',
       error: null,
       rememberOnDevice: true,
+      showSingleDayEvents: entry.showSingleDayEvents === true,
     })),
     importFeedback: null,
   };
@@ -364,8 +365,34 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
     dispatch({ type: 'CLEAR_ALL' });
   };
 
+  const toggleSingleDayEvents = useCallback((sourceId) => {
+    dispatch({
+      type: 'TOGGLE_SINGLE_DAY_EVENTS',
+      payload: { sourceId },
+    });
+  }, []);
+
+  const singleDayAllowedSourceIds = useMemo(() => {
+    const allowed = new Set();
+    state.sources.forEach((source) => {
+      if (source.showSingleDayEvents) {
+        allowed.add(source.id);
+      }
+    });
+    return allowed;
+  }, [state.sources]);
+
+  const visibleEvents = useMemo(() => {
+    return state.events.filter((event) => {
+      if (!event.allDay || (event.durationDays ?? 0) > 1) {
+        return true;
+      }
+      return singleDayAllowedSourceIds.has(event.sourceId);
+    });
+  }, [state.events, singleDayAllowedSourceIds]);
+
   return {
-    events: state.events,
+    events: visibleEvents,
     sources: state.sources,
     importFeedback: state.importFeedback,
     isImportingUrl,
@@ -376,5 +403,6 @@ export const useCalendarSources = ({ baseDate, displayedRange }) => {
     removeSource,
     clearAllSources,
     clearImportFeedback,
+    toggleSingleDayEvents,
   };
 };

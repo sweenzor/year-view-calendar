@@ -58,8 +58,12 @@ export const createInitialCalendarState = (baseDate = new Date()) => {
 };
 
 export const applyImportedSource = (state, { source, events }) => {
+  const existingSource = state.sources.find((existing) => existing.id === source.id);
   const nextSource = {
     ...source,
+    showSingleDayEvents: source.showSingleDayEvents
+      ?? existingSource?.showSingleDayEvents
+      ?? false,
     status: SOURCE_STATUS.READY,
     error: null,
   };
@@ -72,6 +76,16 @@ export const applyImportedSource = (state, { source, events }) => {
     ],
     sources: upsertSource(state.sources, nextSource),
     importFeedback: null,
+  };
+};
+
+export const toggleSourceSingleDayEvents = (state, sourceId) => {
+  return {
+    ...state,
+    sources: updateSource(state.sources, sourceId, (source) => ({
+      ...source,
+      showSingleDayEvents: !source.showSingleDayEvents,
+    })),
   };
 };
 
@@ -144,6 +158,8 @@ export const calendarSourcesReducer = (state, action) => {
       return setSourceError(state, action.payload);
     case 'UPDATE_SOURCE_EVENTS':
       return updateSourceEvents(state, action.payload);
+    case 'TOGGLE_SINGLE_DAY_EVENTS':
+      return toggleSourceSingleDayEvents(state, action.payload.sourceId);
     case 'REMOVE_SOURCE':
       return removeSourceFromState(state, action.payload.sourceId);
     case 'CLEAR_ALL':

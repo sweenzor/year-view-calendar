@@ -56,6 +56,28 @@ describe('normalizeCalendarData', () => {
     expect(events[0].durationDays).toBe(2);
   });
 
+  it('keeps single-day all-day events so callers can opt in to showing them', () => {
+    const calendar = wrapCalendar([
+      makeEvent([
+        'UID:holiday-1',
+        'SUMMARY:Labor Day',
+        'DTSTART;VALUE=DATE:20260907',
+        'DTEND;VALUE=DATE:20260908',
+      ]),
+    ]);
+
+    const { events } = normalizeCalendarData(calendar, { sourceId: 'source-holiday' });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      id: 'source-holiday:holiday-1',
+      allDay: true,
+      durationDays: 1,
+    });
+    expect(events[0].start).toEqual(new Date(2026, 8, 7));
+    expect(events[0].end).toEqual(new Date(2026, 8, 7));
+  });
+
   it('filters out timed events that do not exceed 24 hours', () => {
     const calendar = wrapCalendar([
       makeEvent([
