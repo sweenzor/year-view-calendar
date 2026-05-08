@@ -157,6 +157,63 @@ describe('calendar source state', () => {
     });
   });
 
+  it('updates source events when refreshed content changes under the same IDs', () => {
+    const existingSourceEvent = {
+      id: 'source-1:event-1',
+      sourceId: 'source-1',
+      title: 'Old title',
+      start: new Date(2026, 0, 1),
+      end: new Date(2026, 0, 3),
+      allDay: true,
+      durationDays: 3,
+    };
+    const otherSourceEvent = {
+      id: 'source-2:event-1',
+      sourceId: 'source-2',
+      title: 'Other source',
+      start: new Date(2026, 2, 1),
+      end: new Date(2026, 2, 2),
+      allDay: true,
+      durationDays: 2,
+    };
+    const state = {
+      events: [existingSourceEvent, otherSourceEvent],
+      sources: [{
+        id: 'source-1',
+        name: 'Remote',
+        type: 'url',
+        url: 'https://example.com/calendar.ics',
+        status: SOURCE_STATUS.READY,
+        error: null,
+      }, {
+        id: 'source-2',
+        name: 'Other',
+        type: 'url',
+        url: 'https://example.com/other.ics',
+        status: SOURCE_STATUS.READY,
+        error: null,
+      }],
+      importFeedback: null,
+    };
+    const refreshedEvent = {
+      ...existingSourceEvent,
+      title: 'Updated title',
+      start: new Date(2026, 0, 2),
+      end: new Date(2026, 0, 4),
+    };
+
+    const nextState = calendarSourcesReducer(state, {
+      type: 'UPDATE_SOURCE_EVENTS',
+      payload: {
+        sourceId: 'source-1',
+        events: [refreshedEvent],
+      },
+    });
+
+    expect(nextState).not.toBe(state);
+    expect(nextState.events).toEqual([otherSourceEvent, refreshedEvent]);
+  });
+
   it('removes and clears sources', () => {
     const state = {
       events: [{
