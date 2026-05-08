@@ -45,6 +45,7 @@ export const clearRememberedCalendarUrls = () => {
 };
 
 const HIDDEN_EVENTS_KEY = 'hiddenEventIds';
+const INFO_BANNER_DISMISSED_KEY = 'aboutAppBannerDismissed';
 
 export const saveHiddenEventIds = (hiddenIds) => {
   try {
@@ -66,5 +67,21 @@ export const loadHiddenEventIds = () => {
     return Array.isArray(parsed) ? new Set(parsed) : new Set();
   } catch {
     return new Set();
+  }
+};
+
+export const saveInfoBannerDismissed = () => {
+  try {
+    localStorage.setItem(INFO_BANNER_DISMISSED_KEY, 'true');
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+export const loadInfoBannerDismissed = () => {
+  try {
+    return localStorage.getItem(INFO_BANNER_DISMISSED_KEY) === 'true';
+  } catch {
+    return false;
   }
 };

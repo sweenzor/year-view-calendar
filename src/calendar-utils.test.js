@@ -51,8 +51,8 @@ describe('normalizeCalendarData', () => {
 
     expect(events).toHaveLength(1);
     expect(events[0].allDay).toBe(false);
-    expect(events[0].start).toEqual(new Date(Date.UTC(2026, 5, 10)));
-    expect(events[0].end).toEqual(new Date(Date.UTC(2026, 5, 11)));
+    expect(events[0].start).toEqual(new Date(2026, 5, 10));
+    expect(events[0].end).toEqual(new Date(2026, 5, 11));
     expect(events[0].durationDays).toBe(2);
   });
 
@@ -182,8 +182,8 @@ describe('normalizeCalendarData', () => {
 
     expect(events).toHaveLength(1);
     expect(events[0].title).toBe('Planning Retreat and Workshop');
-    expect(events[0].start).toEqual(new Date(Date.UTC(2026, 2, 1)));
-    expect(events[0].end).toEqual(new Date(Date.UTC(2026, 2, 2)));
+    expect(events[0].start).toEqual(new Date(2026, 2, 1));
+    expect(events[0].end).toEqual(new Date(2026, 2, 2));
   });
 
   it('falls back to an untitled label when summary is missing', () => {

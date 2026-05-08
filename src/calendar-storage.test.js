@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   clearRememberedCalendarUrls,
   loadHiddenEventIds,
+  loadInfoBannerDismissed,
   loadRememberedCalendarUrls,
   saveHiddenEventIds,
+  saveInfoBannerDismissed,
   saveRememberedCalendarUrls,
 } from './calendar-storage';
 
@@ -75,5 +77,14 @@ describe('calendar-storage', () => {
     saveHiddenEventIds(new Set(['event-1']));
     saveHiddenEventIds(new Set());
     expect(loadHiddenEventIds()).toEqual(new Set());
+  });
+
+  it('defaults to showing the info banner', () => {
+    expect(loadInfoBannerDismissed()).toBe(false);
+  });
+
+  it('persists info banner dismissal', () => {
+    saveInfoBannerDismissed();
+    expect(loadInfoBannerDismissed()).toBe(true);
   });
 });

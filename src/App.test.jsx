@@ -101,7 +101,23 @@ describe('App', () => {
     expect(screen.getAllByRole('button', { name: 'Previous year' })[0]).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Next year' })[0]).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Dismiss information banner' })[0]).toBeInTheDocument();
+    const githubLink = screen.getByRole('link', { name: 'View source on GitHub' });
+    expect(githubLink).toHaveAttribute('href', 'https://github.com/sweenzor/year-view-calendar');
+    expect(
+      githubLink.compareDocumentPosition(screen.getByRole('button', { name: 'Print calendar' }))
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.queryByText('GitHub')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Calendar URL')).toHaveAttribute('type', 'url');
+    expect(screen.queryByText('About this app')).not.toBeInTheDocument();
+    expect(screen.queryByText('Code on GitHub')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Shows all-day events/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Calendar links are requested through a proxy first/)).toBeInTheDocument();
+    expect(screen.getByText(/Turn on Remember this URL/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Calendar links are requested through a proxy first/).compareDocumentPosition(screen.getByRole('heading', { name: 'File Upload' }))
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     await user.click(screen.getAllByRole('button', { name: 'Previous year' })[0]);
     await user.click(screen.getAllByRole('button', { name: 'Switch to rolling 12 month view' })[0]);
@@ -112,6 +128,23 @@ describe('App', () => {
       .filter((text) => MONTH_NAMES.includes(text));
     expect(monthHeadings[0]).toBe('March');
     expect(monthHeadings[11]).toBe('February');
+  });
+
+  it('keeps the information banner dismissed on the same device', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<App initialDate={new Date('2026-03-21T12:00:00Z')} />);
+
+    expect(screen.getByText(/Calendar links are requested through a proxy first/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Dismiss information banner' }));
+
+    expect(screen.queryByText(/Calendar links are requested through a proxy first/)).not.toBeInTheDocument();
+    expect(localStorage.getItem('aboutAppBannerDismissed')).toBe('true');
+
+    unmount();
+    render(<App initialDate={new Date('2026-03-21T12:00:00Z')} />);
+
+    expect(screen.queryByText(/Calendar links are requested through a proxy first/)).not.toBeInTheDocument();
   });
 
   it('renders inline URL import errors instead of using alert()', async () => {

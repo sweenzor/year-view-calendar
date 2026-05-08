@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Printer, Repeat } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Github, Printer, Repeat } from 'lucide-react';
 
 export const CalendarToolbar = ({
   currentYear,
@@ -19,6 +19,17 @@ export const CalendarToolbar = ({
       </div>
 
       <div className="flex items-center gap-4">
+        <a
+          href="https://github.com/sweenzor/year-view-calendar"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="View source on GitHub"
+          title="View source on GitHub"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+        >
+          <Github size={18} />
+        </a>
+
         <button
           type="button"
           onClick={onPrint}
