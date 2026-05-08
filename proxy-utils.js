@@ -6,12 +6,11 @@ import {
   MAX_PROXY_RESPONSE_BYTES,
   PRIVATE_NETWORK_MESSAGE,
   PROXY_TIMEOUT_MS,
-  getIpVersion,
   isBlockedHostname,
   isPrivateIpAddress,
   normalizeHostname,
   parseRedirectTarget,
-  validateProxyUrlShape,
+  validateProxyUrlWithDnsLookup,
 } from './proxy-shared.js';
 
 const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
@@ -27,35 +26,9 @@ export {
 };
 
 export const validateProxyUrl = async (urlString) => {
-  const baseValidation = validateProxyUrlShape(urlString);
-  if (!baseValidation.ok) {
-    return baseValidation;
-  }
-
-  if (getIpVersion(baseValidation.normalizedHostname)) {
-    return {
-      ok: true,
-      url: baseValidation.url,
-    };
-  }
-
-  try {
-    const lookupResults = await lookup(baseValidation.normalizedHostname, { all: true, verbatim: true });
-    if (lookupResults.some((result) => isPrivateIpAddress(result.address))) {
-      return {
-        ok: false,
-        status: 403,
-        message: PRIVATE_NETWORK_MESSAGE,
-      };
-    }
-  } catch {
-    // Let the upstream fetch surface DNS failures naturally.
-  }
-
-  return {
-    ok: true,
-    url: baseValidation.url,
-  };
+  return validateProxyUrlWithDnsLookup(urlString, (hostname) => {
+    return lookup(hostname, { all: true, verbatim: true });
+  });
 };
 
 export const isRedirectStatus = (status) => {
