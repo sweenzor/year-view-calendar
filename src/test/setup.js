@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 
-const createTestStorage = () => {
+const createStorage = () => {
   const values = new Map();
 
   return {
@@ -15,7 +15,7 @@ const createTestStorage = () => {
       return values.has(normalizedKey) ? values.get(normalizedKey) : null;
     },
     key(index) {
-      return Array.from(values.keys())[index] ?? null;
+      return [...values.keys()][index] ?? null;
     },
     removeItem(key) {
       values.delete(String(key));
@@ -26,16 +26,24 @@ const createTestStorage = () => {
   };
 };
 
-const testLocalStorage = createTestStorage();
+const ensureStorage = (name) => {
+  if (typeof globalThis[name]?.clear === 'function') {
+    return;
+  }
 
-Object.defineProperty(globalThis, 'localStorage', {
-  configurable: true,
-  value: testLocalStorage,
-});
-
-if (typeof window !== 'undefined') {
-  Object.defineProperty(window, 'localStorage', {
+  const storage = createStorage();
+  Object.defineProperty(globalThis, name, {
     configurable: true,
-    value: testLocalStorage,
+    value: storage,
   });
-}
+
+  if (typeof window !== 'undefined') {
+    Object.defineProperty(window, name, {
+      configurable: true,
+      value: storage,
+    });
+  }
+};
+
+ensureStorage('localStorage');
+ensureStorage('sessionStorage');

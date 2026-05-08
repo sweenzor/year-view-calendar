@@ -2,11 +2,11 @@
 
 [https://yearview.life/](https://yearview.life/)
 
-A React-based yearly planner designed to visualize long-term events. This application automatically filters out short meetings and focuses on displaying multi-day events (lasting longer than 24 hours) in a clean, continuous view.
+A React-based yearly planner designed to visualize long-running and all-day calendar events. The app filters out timed events that do not exceed 24 hours, keeps all-day events including single-day all-day items, and renders the selected sources in a clean, continuous view.
 
 ## Features
 
-*   **Long-Term Focus:** Automatically filters out events shorter than 24 hours to de-clutter your year view.
+*   **Long-Term + All-Day Focus:** Filters out short timed events while keeping multi-day events and single-day all-day events such as holidays.
 *   **Multi-Source Import:**
     *   **Drag & Drop:** Upload `.ics` calendar files directly.
     *   **URL Import:** Fetch calendars from public URLs (handles `webcal://` and `https://`).
@@ -14,7 +14,8 @@ A React-based yearly planner designed to visualize long-term events. This applic
 *   **Flexible Views:**
     *   **Calendar Year:** Standard Jan-Dec view.
     *   **Rolling 12-Months:** View a 12-month window starting from the current month in the selected year.
-*   **Privacy-Aware Imports:** File imports stay in your browser. URL imports may transit the local development proxy or the production Cloudflare Pages Function when direct browser access is blocked. Saved feed URLs are only stored when you explicitly opt in on that device.
+*   **Per-Source Controls:** Hide or show single-day all-day events for each imported calendar source without removing the source.
+*   **Privacy-Aware Imports:** File imports stay in your browser. URL imports may transit the local development proxy or the production Cloudflare Pages Function when direct browser access is blocked. Remembered URL imports store the full feed URL, including any embedded secret token, in this browser only when you explicitly opt in on that device.
 *   **Visual Clarity:**
     *   Continuous event bars spanning across days and weeks.
     *   Chevron-shaped bars at week and month boundaries show event continuation.
@@ -96,10 +97,10 @@ docker exec year-view-calendar-app-1 npm test  # via OrbStack running container
 
 ## Usage
 
-1.  **Import Data:** Drag an `.ics` file (exported from Google Calendar, Apple Calendar, or Outlook) onto the "File Upload" drop zone, or paste a calendar URL. If you want URL-based calendars to survive refresh, check the device-local “Remember this URL” option before importing.
+1.  **Import Data:** Drag an `.ics` file (exported from Google Calendar, Apple Calendar, or Outlook) onto the "File Upload" drop zone, or paste a calendar URL. If you want URL-based calendars to survive refresh, check the device-local “Remember this URL” option before importing. Remembering stores the full feed URL, including any embedded secret token, in this browser so the source can reload after refresh; leave it off on shared or untrusted devices.
 2.  **Navigate:** Use the arrow keys next to the year to switch years.
 3.  **Toggle View:** Click "Next 12 Months" to switch between a static year view and a rolling 12-month view anchored to the selected year.
-4.  **Manage Sources:** See loaded calendars in the side panel. Reload URL sources, remove individual sources, or clear all data.
+4.  **Manage Sources:** See loaded calendars in the side panel. Use the calendar icon on each source to hide or show that source's single-day all-day events. Reload URL sources, remove individual sources, or clear all data.
 5.  **Print:** Use the print button for an optimized 3-column yearly layout.
 
 ## Production Proxy Notes

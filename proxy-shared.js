@@ -142,6 +142,58 @@ export const validateProxyUrlShape = (urlString) => {
   };
 };
 
+const getResolvedAddress = (result) => {
+  if (typeof result === 'string') {
+    return result;
+  }
+
+  if (typeof result?.address === 'string') {
+    return result.address;
+  }
+
+  return '';
+};
+
+export const hasPrivateResolvedAddress = (lookupResults) => {
+  if (!Array.isArray(lookupResults)) {
+    return false;
+  }
+
+  return lookupResults.some((result) => isPrivateIpAddress(getResolvedAddress(result)));
+};
+
+export const validateProxyUrlWithDnsLookup = async (urlString, lookupHostnameAddresses) => {
+  const baseValidation = validateProxyUrlShape(urlString);
+  if (!baseValidation.ok) {
+    return baseValidation;
+  }
+
+  if (getIpVersion(baseValidation.normalizedHostname)) {
+    return {
+      ok: true,
+      url: baseValidation.url,
+    };
+  }
+
+  try {
+    const lookupResults = await lookupHostnameAddresses(baseValidation.normalizedHostname);
+    if (hasPrivateResolvedAddress(lookupResults)) {
+      return {
+        ok: false,
+        status: 403,
+        message: PRIVATE_NETWORK_MESSAGE,
+      };
+    }
+  } catch {
+    // Let the upstream fetch surface DNS failures naturally.
+  }
+
+  return {
+    ok: true,
+    url: baseValidation.url,
+  };
+};
+
 export const parseRedirectTarget = (currentUrl, location) => {
   let redirectedUrl;
   try {

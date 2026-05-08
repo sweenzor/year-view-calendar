@@ -35,6 +35,34 @@ const upsertSource = (sources, nextSource) => {
   return nextSources;
 };
 
+const eventValueMatches = (left, right) => {
+  if (left === right) {
+    return true;
+  }
+
+  if (left instanceof Date && right instanceof Date) {
+    return left.getTime() === right.getTime();
+  }
+
+  return false;
+};
+
+const eventMatches = (left, right) => {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key) => (
+      Object.prototype.hasOwnProperty.call(right, key)
+      && eventValueMatches(left[key], right[key])
+    ));
+};
+
+const sourceEventsMatch = (existing, events) => {
+  return existing.length === events.length
+    && existing.every((event, index) => eventMatches(event, events[index]));
+};
+
 export const createSourceId = () => {
   return globalThis.crypto?.randomUUID?.()
     || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -117,8 +145,7 @@ export const updateSourceEvents = (state, { sourceId, events }) => {
   }
 
   const existing = state.events.filter((event) => event.sourceId === sourceId);
-  if (existing.length === events.length
-    && existing.every((event, i) => event.id === events[i].id)) {
+  if (sourceEventsMatch(existing, events)) {
     return state;
   }
 
