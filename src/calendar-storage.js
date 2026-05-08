@@ -1,3 +1,5 @@
+import { getSafeCalendarName } from './calendar-import';
+
 const STORAGE_KEY = 'calendarUrls';
 
 export const saveRememberedCalendarUrls = (sources) => {
@@ -6,7 +8,7 @@ export const saveRememberedCalendarUrls = (sources) => {
       .filter((source) => source.type === 'url' && source.url && source.rememberOnDevice)
       .map((source) => ({
         url: source.url,
-        name: source.name,
+        name: getSafeCalendarName(source.url, source.name),
         showSingleDayEvents: source.showSingleDayEvents !== false,
       }));
 
@@ -30,7 +32,11 @@ export const loadRememberedCalendarUrls = () => {
 
     return parsed
       .map((entry) => (typeof entry === 'string' ? { url: entry, name: null } : entry))
-      .filter((entry) => typeof entry?.url === 'string' && entry.url.trim());
+      .filter((entry) => typeof entry?.url === 'string' && entry.url.trim())
+      .map((entry) => ({
+        ...entry,
+        name: getSafeCalendarName(entry.url, entry.name),
+      }));
   } catch {
     return [];
   }

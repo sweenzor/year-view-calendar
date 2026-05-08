@@ -1,5 +1,5 @@
 import { startTransition, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { fetchCalendarTextWithFallback, getCalendarName, isSupportedCalendarUrl, normalizeCalendarUrl, readFileAsText } from './calendar-import';
+import { fetchCalendarTextWithFallback, getCalendarName, getSafeCalendarName, isSupportedCalendarUrl, normalizeCalendarUrl, readFileAsText } from './calendar-import';
 import {
   calendarSourcesReducer,
   createInitialCalendarState,
@@ -46,6 +46,16 @@ const rangesMatch = (left, right) => {
     && left.rangeEndMs === right.rangeEndMs;
 };
 
+const getImportedSourceName = ({ calendarName, sourceName, sourceUrl }) => {
+  if (!sourceUrl) {
+    return calendarName || sourceName;
+  }
+
+  return getSafeCalendarName(sourceUrl, calendarName)
+    || getSafeCalendarName(sourceUrl, sourceName)
+    || getCalendarName(sourceUrl);
+};
+
 const applyImportedContent = async (dispatch, parseSourceContent, content, {
   sourceId,
   sourceName,
@@ -60,7 +70,7 @@ const applyImportedContent = async (dispatch, parseSourceContent, content, {
       payload: {
         source: {
           id: sourceId,
-          name: calendarName || sourceName,
+          name: getImportedSourceName({ calendarName, sourceName, sourceUrl }),
           type: sourceType,
           url: sourceUrl,
           rememberOnDevice,

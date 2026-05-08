@@ -45,6 +45,49 @@ describe('calendar-storage', () => {
     ]);
   });
 
+  it('redacts path-derived labels when saving remembered private URL sources', () => {
+    const googleSecretUrl = 'https://calendar.google.com/calendar/ical/person%40example.com/private-abc123/basic.ics';
+    const privateFeedUrl = 'https://feeds.example.com/calendars/very-secret-token/private.ics?token=abc123';
+
+    saveRememberedCalendarUrls([
+      {
+        id: 'source-1',
+        name: 'calendar.google.com/calendar/ical/person%40example.com/private-abc123/basic.ics',
+        type: 'url',
+        url: googleSecretUrl,
+        rememberOnDevice: true,
+      },
+      {
+        id: 'source-2',
+        name: 'feeds.example.com/calendars/very-secret-token/private.ics?token=abc123',
+        type: 'url',
+        url: privateFeedUrl,
+        rememberOnDevice: true,
+      },
+    ]);
+
+    expect(loadRememberedCalendarUrls()).toEqual([
+      { url: googleSecretUrl, name: null, showSingleDayEvents: true },
+      { url: privateFeedUrl, name: null, showSingleDayEvents: true },
+    ]);
+  });
+
+  it('redacts legacy path-derived labels when loading remembered private URL sources', () => {
+    const googleSecretUrl = 'https://calendar.google.com/calendar/ical/person%40example.com/private-abc123/basic.ics';
+
+    localStorage.setItem('calendarUrls', JSON.stringify([
+      {
+        url: googleSecretUrl,
+        name: 'calendar.google.com/calendar/ical/person@example.com/private-abc123/basic.ics',
+        showSingleDayEvents: false,
+      },
+    ]));
+
+    expect(loadRememberedCalendarUrls()).toEqual([
+      { url: googleSecretUrl, name: null, showSingleDayEvents: false },
+    ]);
+  });
+
   it('supports the legacy string-array format', () => {
     localStorage.setItem('calendarUrls', JSON.stringify(['https://example.com/old.ics']));
     expect(loadRememberedCalendarUrls()).toEqual([
