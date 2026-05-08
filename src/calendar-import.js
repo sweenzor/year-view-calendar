@@ -1,5 +1,14 @@
 const PROXY_URL_PREFIX = '/proxy?url=';
 const URL_IMPORT_FALLBACK_MESSAGE = 'Could not load URL. Some providers block direct browser access, so you may need to download the file and drag it in.';
+export const DEFAULT_REMOTE_CALENDAR_NAME = 'Remote Calendar';
+
+const decodeSafely = (value) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
 
 const isPolicyError = (message) => {
   return message.includes('not allowed') || message.includes('Only http:// and https:// URLs are supported.');
@@ -30,13 +39,63 @@ export const isSupportedCalendarUrl = (value) => {
   }
 };
 
-export const getCalendarName = (url) => {
+export const getCalendarName = () => {
+  return DEFAULT_REMOTE_CALENDAR_NAME;
+};
+
+export const isPathBasedCalendarName = (url, name) => {
+  const trimmedName = typeof name === 'string' ? name.trim() : '';
+  if (!trimmedName) {
+    return false;
+  }
+
   try {
     const parsedUrl = new URL(url);
-    return parsedUrl.hostname + (parsedUrl.pathname.length > 1 ? parsedUrl.pathname : '');
+    const path = parsedUrl.pathname;
+    if (!path || path === '/') {
+      return false;
+    }
+
+    const decodedPath = decodeSafely(path);
+    const pathWithoutLeadingSlash = path.replace(/^\/+/, '');
+    const decodedPathWithoutLeadingSlash = decodedPath.replace(/^\/+/, '');
+    // Older imports used URL paths as labels, so match encoded and decoded variants.
+    const candidates = new Set([
+      parsedUrl.href,
+      `${parsedUrl.origin}${path}`,
+      `${parsedUrl.origin}${path}${parsedUrl.search}`,
+      `${parsedUrl.hostname}${path}`,
+      `${parsedUrl.hostname}${path}${parsedUrl.search}`,
+      `${parsedUrl.hostname}${decodedPath}`,
+      `${parsedUrl.hostname}${decodedPath}${parsedUrl.search}`,
+      path,
+      decodedPath,
+      pathWithoutLeadingSlash,
+      decodedPathWithoutLeadingSlash,
+    ]);
+
+    const segments = pathWithoutLeadingSlash.split('/').filter(Boolean);
+    const decodedSegments = decodedPathWithoutLeadingSlash.split('/').filter(Boolean);
+    if (segments.length > 0) {
+      candidates.add(segments[segments.length - 1]);
+    }
+    if (decodedSegments.length > 0) {
+      candidates.add(decodedSegments[decodedSegments.length - 1]);
+    }
+
+    return candidates.has(trimmedName);
   } catch {
-    return 'Remote Calendar';
+    return false;
   }
+};
+
+export const getSafeCalendarName = (url, name) => {
+  const trimmedName = typeof name === 'string' ? name.trim() : '';
+  if (!trimmedName || trimmedName === DEFAULT_REMOTE_CALENDAR_NAME) {
+    return null;
+  }
+
+  return isPathBasedCalendarName(url, trimmedName) ? null : trimmedName;
 };
 
 export const readFileAsText = (file) => {

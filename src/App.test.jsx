@@ -26,11 +26,13 @@ vi.mock('./calendar-parse-worker.js?worker', () => ({
   default: class MockParseWorker {
     terminate() {}
 
-    postMessage({ sourceId }) {
+    postMessage({ content, sourceId }) {
       queueMicrotask(() => {
+        const calendarName = content.match(/^X-WR-CALNAME:(.+)$/m)?.[1]?.trim() || null;
+
         this.onmessage?.({
           data: {
-            calendarName: null,
+            calendarName,
             events: [{
               id: `${sourceId}:event-1`,
               sourceId,
@@ -131,8 +133,10 @@ describe('App', () => {
     });
   });
 
-  it('persists URL imports only when remember-on-device is enabled', async () => {
+  it('redacts path-based names for remembered private URL imports', async () => {
     const user = userEvent.setup();
+    const googleSecretUrl = 'https://calendar.google.com/calendar/ical/person%40example.com/private-abc123/basic.ics';
+
     globalThis.fetch.mockResolvedValue({
       ok: true,
       text: async () => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR',
@@ -141,13 +145,40 @@ describe('App', () => {
     render(<App initialDate={new Date('2026-03-21T12:00:00Z')} />);
 
     const urlInput = screen.getByLabelText('Calendar URL');
-    await user.type(urlInput, 'https://example.com/private.ics');
+    await user.type(urlInput, googleSecretUrl);
     await user.click(screen.getAllByLabelText('Remember this URL on this device')[0]);
     await user.click(urlInput.form.querySelector('button[type="submit"]'));
 
     await waitFor(() => {
       expect(JSON.parse(localStorage.getItem('calendarUrls'))).toEqual([
-        { url: 'https://example.com/private.ics', name: 'example.com/private.ics', showSingleDayEvents: true },
+        { url: googleSecretUrl, name: null, showSingleDayEvents: true },
+      ]);
+    });
+    expect(screen.getByText('Remote Calendar')).toBeInTheDocument();
+    expect(screen.queryByText(/private-abc123/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /private-abc123/ })).not.toBeInTheDocument();
+  });
+
+  it('persists safe calendar names provided by remembered URL feeds', async () => {
+    const user = userEvent.setup();
+    const googleSecretUrl = 'https://calendar.google.com/calendar/ical/person%40example.com/private-def456/basic.ics';
+
+    globalThis.fetch.mockResolvedValue({
+      ok: true,
+      text: async () => 'BEGIN:VCALENDAR\r\nX-WR-CALNAME:Family Plans\r\nEND:VCALENDAR',
+    });
+
+    render(<App initialDate={new Date('2026-03-21T12:00:00Z')} />);
+
+    const urlInput = screen.getByLabelText('Calendar URL');
+    await user.type(urlInput, googleSecretUrl);
+    await user.click(screen.getAllByLabelText('Remember this URL on this device')[0]);
+    await user.click(urlInput.form.querySelector('button[type="submit"]'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Family Plans')).toBeInTheDocument();
+      expect(JSON.parse(localStorage.getItem('calendarUrls'))).toEqual([
+        { url: googleSecretUrl, name: 'Family Plans', showSingleDayEvents: true },
       ]);
     });
   });
