@@ -148,7 +148,7 @@ export const ImportPanel = ({
             >
               calendar settings
             </a>.
-            If you enable remembering, the full feed URL is stored in this browser so it can reload after refresh.
+            Turn on Remember this URL to save the full feed URL in this browser for future reloads.
           </p>
         </div>
       </div>

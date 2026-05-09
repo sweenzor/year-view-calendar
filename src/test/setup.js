@@ -27,7 +27,8 @@ const createStorage = () => {
 };
 
 const ensureStorage = (name) => {
-  if (typeof globalThis[name]?.clear === 'function') {
+  const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, name);
+  if (typeof storageDescriptor?.value?.clear === 'function') {
     return;
   }
 
