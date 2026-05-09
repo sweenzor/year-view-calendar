@@ -46,11 +46,11 @@ const createDisplayedRange = (year) => ({
   end: new Date(year + 1, 0, 1),
 });
 
-const completeWorkerJob = (job) => {
+const completeWorkerJob = (job, { calendarName = null } = {}) => {
   act(() => {
     job.worker.onmessage?.({
       data: {
-        calendarName: null,
+        calendarName,
         events: [{
           id: `${job.payload.sourceId}:${job.payload.rangeStartMs}`,
           sourceId: job.payload.sourceId,
@@ -66,15 +66,20 @@ const completeWorkerJob = (job) => {
 };
 
 const HookHarness = ({ displayedRange }) => {
-  const { events } = useCalendarSources({
+  const { events, sources } = useCalendarSources({
     baseDate: new Date('2026-03-21T12:00:00Z'),
     displayedRange,
   });
 
   return (
-    <output data-testid="event-ids">
-      {events.map((event) => event.id).join(',')}
-    </output>
+    <>
+      <output data-testid="event-ids">
+        {events.map((event) => event.id).join(',')}
+      </output>
+      <output data-testid="source-names">
+        {sources.map((source) => source.name).join(',')}
+      </output>
+    </>
   );
 };
 
@@ -135,6 +140,36 @@ describe('useCalendarSources', () => {
       expect(screen.getByTestId('event-ids')).toHaveTextContent(
         `${sourceId}:${nextRange.start.getTime()}`,
       );
+    });
+  });
+
+  it('redacts remembered path labels while reloading the original private URL', async () => {
+    const secretUrl = 'https://calendar.google.com/calendar/ical/person%40example.com/private-abc123/basic.ics';
+    localStorage.setItem('calendarUrls', JSON.stringify([
+      {
+        url: secretUrl,
+        name: 'calendar.google.com/calendar/ical/person@example.com/private-abc123/basic.ics',
+      },
+    ]));
+
+    fetchCalendarTextWithFallbackMock.mockResolvedValueOnce('BEGIN:VCALENDAR\r\nEND:VCALENDAR');
+
+    render(<HookHarness displayedRange={createDisplayedRange(2026)} />);
+
+    await waitFor(() => {
+      expect(fetchCalendarTextWithFallbackMock).toHaveBeenCalledWith(secretUrl);
+    });
+
+    expect(screen.getByTestId('source-names')).toHaveTextContent('Remote Calendar');
+    expect(screen.getByTestId('source-names')).not.toHaveTextContent('private-abc123');
+
+    await waitFor(() => {
+      expect(workerJobs).toHaveLength(1);
+    });
+    completeWorkerJob(workerJobs[0]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('source-names')).toHaveTextContent('Remote Calendar');
     });
   });
 });

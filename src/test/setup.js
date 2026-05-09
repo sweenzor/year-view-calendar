@@ -1,46 +1,50 @@
 import '@testing-library/jest-dom/vitest';
 
-const createTestStorage = () => {
-  const store = new Map();
+const createStorage = () => {
+  const values = new Map();
 
   return {
     get length() {
-      return store.size;
+      return values.size;
     },
     clear() {
-      store.clear();
+      values.clear();
     },
     getItem(key) {
-      return store.get(String(key)) ?? null;
+      const normalizedKey = String(key);
+      return values.has(normalizedKey) ? values.get(normalizedKey) : null;
     },
     key(index) {
-      return [...store.keys()][index] ?? null;
+      return [...values.keys()][index] ?? null;
     },
     removeItem(key) {
-      store.delete(String(key));
+      values.delete(String(key));
     },
     setItem(key, value) {
-      store.set(String(key), String(value));
+      values.set(String(key), String(value));
     },
   };
 };
 
-const localStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
-const needsLocalStoragePolyfill = !localStorageDescriptor
-  || typeof localStorageDescriptor.value?.clear !== 'function';
+const ensureStorage = (name) => {
+  const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, name);
+  if (typeof storageDescriptor?.value?.clear === 'function') {
+    return;
+  }
 
-if (needsLocalStoragePolyfill) {
-  const localStorage = createTestStorage();
-
-  Object.defineProperty(globalThis, 'localStorage', {
-    value: localStorage,
+  const storage = createStorage();
+  Object.defineProperty(globalThis, name, {
     configurable: true,
+    value: storage,
   });
 
   if (typeof window !== 'undefined') {
-    Object.defineProperty(window, 'localStorage', {
-      value: localStorage,
+    Object.defineProperty(window, name, {
       configurable: true,
+      value: storage,
     });
   }
-}
+};
+
+ensureStorage('localStorage');
+ensureStorage('sessionStorage');

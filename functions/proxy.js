@@ -3,11 +3,8 @@
 // lookup so hostnames that resolve to private addresses are rejected before fetch().
 
 import {
-  PRIVATE_NETWORK_MESSAGE,
   PROXY_TIMEOUT_MS,
-  getIpVersion,
-  isPrivateIpAddress,
-  validateProxyUrlShape,
+  validateProxyUrlWithDnsLookup,
 } from '../proxy-shared.js';
 import {
   PROXY_SECURITY_HEADERS,
@@ -52,32 +49,8 @@ const lookupHostnameAddresses = async (hostname) => {
   return [...new Set(responses.flat())];
 };
 
-const validateUrl = async (urlString) => {
-  const baseValidation = validateProxyUrlShape(urlString);
-  if (!baseValidation.ok) {
-    return baseValidation;
-  }
-
-  if (getIpVersion(baseValidation.normalizedHostname)) {
-    return {
-      ok: true,
-      url: baseValidation.url,
-    };
-  }
-
-  try {
-    const lookupResults = await lookupHostnameAddresses(baseValidation.normalizedHostname);
-    if (lookupResults.some((address) => isPrivateIpAddress(address))) {
-      return { ok: false, status: 403, message: PRIVATE_NETWORK_MESSAGE };
-    }
-  } catch {
-    // Let the upstream fetch surface DNS failures naturally.
-  }
-
-  return {
-    ok: true,
-    url: baseValidation.url,
-  };
+export const validateProxyUrl = async (urlString) => {
+  return validateProxyUrlWithDnsLookup(urlString, lookupHostnameAddresses);
 };
 
 const validateBrowserRequest = (request, requestUrl) => {
@@ -112,14 +85,14 @@ export async function onRequestGet(context) {
     return errorResponse(400, 'A calendar URL is required.');
   }
 
-  const validation = await validateUrl(url);
+  const validation = await validateProxyUrl(url);
   if (!validation.ok) {
     return errorResponse(validation.status, validation.message);
   }
 
   try {
     const { response } = await followValidatedRedirects(validation.url.toString(), {
-      validateUrl,
+      validateUrl: validateProxyUrl,
       sendRequest: async (url) => {
         const response = await fetch(url, {
           redirect: 'manual',
