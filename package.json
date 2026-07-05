@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node server.js & vite",
-    "build": "vite build",
+    "build": "NODE_ENV=production vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run"
