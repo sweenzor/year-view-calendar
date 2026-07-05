@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { assignEventColors, eventColorKey, normalizeCalendarData } from './calendar-utils';
+import { normalizeCalendarData } from './calendar-parse';
+import { assignEventColors, eventColorKey } from './calendar-utils';
 
 const wrapCalendar = (eventBlocks) => {
   return [

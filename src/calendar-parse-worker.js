@@ -1,4 +1,4 @@
-import { normalizeCalendarData } from './calendar-utils';
+import { normalizeCalendarData } from './calendar-parse';
 
 self.onmessage = (event) => {
   const {

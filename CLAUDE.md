@@ -38,7 +38,8 @@ docker compose exec app npm test
 The app is split into small feature modules instead of a single monolith:
 
 - **App shell** (`src/App.jsx`): owns only view-mode/year state, print wiring, info banner visibility, and composition of the major panels.
-- **Calendar parsing + appearance** (`src/calendar-utils.js`): uses `ical.js` to normalize VEVENTs into `{ id, title, start, end, durationDays, allDay, sourceId }`, keeps all-day events of one day or longer, filters timed events unless they exceed 24 hours, and assigns readable event colors.
+- **Calendar parsing** (`src/calendar-parse.js`): uses `ical.js` to normalize VEVENTs into `{ id, title, start, end, durationDays, allDay, sourceId }`, keeps all-day events of one day or longer, and filters timed events unless they exceed 24 hours. Imported only by the parse worker (`src/calendar-parse-worker.js`) so `ical.js` stays out of the main bundle.
+- **Event appearance** (`src/calendar-utils.js`): pure helpers with no `ical.js` dependency — golden-angle color assignment, readable text colors, and mock events. Main-thread modules must import from here, never from `calendar-parse.js`.
 - **Import helpers** (`src/calendar-import.js`): normalizes `webcal://` URLs, reads uploaded files, and performs proxy-first URL fetches with direct-fetch fallback.
 - **Source state** (`src/useCalendarSources.js`, `src/calendar-sources.js`): owns import/reload/remove/clear flows plus per-source loading, error, and single-day all-day visibility state. URL sources can be persisted only when `rememberOnDevice` is explicitly enabled; remembered entries also persist the per-source single-day toggle.
 - **Calendar layout math** (`src/calendar-layout.js`): computes rolling/calendar-year month ranges, slices multi-day events into row segments, and stacks overlaps into lanes before rendering.
@@ -59,7 +60,8 @@ The app is split into small feature modules instead of a single monolith:
 |------|---------|
 | `src/App.jsx` | Top-level app composition and print wiring |
 | `src/useCalendarSources.js` | Import/reload/remove/clear hook |
-| `src/calendar-utils.js` | ICS normalization and color assignment |
+| `src/calendar-parse.js` | ICS normalization (worker-only, owns the `ical.js` dependency) |
+| `src/calendar-utils.js` | Event color assignment and mock events (main-thread safe) |
 | `src/calendar-layout.js` | Rolling-range and month layout helpers |
 | `src/index.css` | Tailwind directives + print styles (3-col layout, scaled sizing) |
 | `server.js` / `proxy-utils.js` | Hardened Express proxy for remote calendar URLs |
