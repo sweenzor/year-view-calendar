@@ -8,6 +8,7 @@ services:
       # Mount source for hot reloading
       - ./src:/app/src
       - ./functions:/app/functions
+      - ./public:/app/public
       - ./index.html:/app/index.html
       - ./vite.config.js:/app/vite.config.js
       - ./tailwind.config.js:/app/tailwind.config.js

@@ -125,9 +125,9 @@ export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingV
   return (
     <div ref={componentRef} className="print-container">
       <div className="hidden print:flex items-center justify-between mb-4 border-b border-gray-300 pb-2">
-        <h1 className="text-2xl font-bold text-gray-800">
+        <p className="text-2xl font-bold text-gray-800">
           Year-view Calendar
-        </h1>
+        </p>
         <span className="text-sm text-gray-600">
           {isRollingView ? `Rolling View (Starting ${rollingLabel})` : 'Calendar Year'}
         </span>
