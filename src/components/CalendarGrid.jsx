@@ -116,7 +116,6 @@ export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingV
     [displayedMonths, printEvents, printColorMap, hiddenEventIds],
   );
 
-  const rollingLabel = monthLayouts[0] ? `${monthLayouts[0].monthName} ${monthLayouts[0].year}` : '';
   const todayMonthKey = useMemo(
     () => monthLayouts.find((ml) => ml.rows.some((r) => r.days.some((d) => d.isToday)))?.key,
     [monthLayouts],
@@ -129,7 +128,7 @@ export const CalendarGrid = ({ componentRef, displayedMonths, events, isRollingV
           Year-view Calendar
         </p>
         <span className="text-sm text-gray-600">
-          {isRollingView ? `Rolling View (Starting ${rollingLabel})` : 'Calendar Year'}
+          {isRollingView ? 'Rolling View' : 'Calendar Year'}
         </span>
       </div>
 
